@@ -194,7 +194,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
   public async run() {
     if (await exists(resolve(Paths.userData, 'Metadata.zip'))) {
-      await unlink(resolve(Paths.userData, 'Metadata.zip'))
+      await unlink(resolve(Paths.userData, 'Metadata.zip2'))
     }
 
     const downloader = this.download(this.downloadUrl, this.downloadDestination)
