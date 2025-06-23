@@ -26,6 +26,7 @@ coverage
 out/
 build
 dist
+dist-types
 
 
 # Debug
@@ -36,3 +37,16 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+.test
+
+# Videos, Images, and other media
+*.mp4
+*.mov
+*.avi
+*.mkv 
+*.webm
+*.jpg
+*.jpeg
+*.png
+*.gif

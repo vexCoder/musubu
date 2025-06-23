@@ -1,0 +1,20 @@
+{
+  "extends": "tsconfig-shared/electron.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@lib/*": ["src/lib/*"],
+      "@core/*": ["src/core/*"],
+      "@services/*": ["src/services/*"],
+      "@trpc/*": ["src/trpc/*"],
+      "@window/*": ["src/window/*"],
+    },
+    "types": ["node"],
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

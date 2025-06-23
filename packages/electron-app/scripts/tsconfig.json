@@ -1,0 +1,4 @@
+{
+  "extends": "tsconfig-shared/node.json",
+  "include": ["./*.mts"]
+}

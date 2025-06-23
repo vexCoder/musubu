@@ -1,3 +1,9 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - tools/*
+  - packages/*
+  - config/*
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - electron
+  - esbuild
+  - unrs-resolver

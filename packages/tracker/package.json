@@ -1,0 +1,26 @@
+{
+  "name": "@musubu/tracker",
+  "main": "dist/index.js",
+  "scripts": {
+    "postinstall": "rimraf ../node_modules && tsc",
+    "compile": "tsx build.ts",
+    "clean": "rimraf build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.5",
+    "eslint-config-shared": "workspace:*",
+    "node-gyp": "9.4.1",
+    "prebuildify": "^6.0.1",
+    "rimraf": "^6.0.1",
+    "tsconfig-shared": "workspace:*",
+    "tsx": "^4.19.4"
+  },
+  "files": [
+    "dist/index.js",
+    "build/Release/tracker.node"
+  ],
+  "dependencies": {
+    "node-addon-api": "^8.3.1",
+    "node-gyp-build": "^4.8.4"
+  }
+}
