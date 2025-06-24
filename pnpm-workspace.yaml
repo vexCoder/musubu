@@ -3,7 +3,9 @@ packages:
   - packages/*
   - config/*
 onlyBuiltDependencies:
+  - '@swc/core'
   - '@tailwindcss/oxide'
+  - better-sqlite3
   - electron
   - esbuild
   - unrs-resolver

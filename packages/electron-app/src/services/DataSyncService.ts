@@ -3,17 +3,20 @@ import type { UnzipProgress } from '@lib/Unzip'
 import type { XmlProgress } from '@lib/XmlParser'
 import { EventEmitter, on } from 'node:events'
 import { resolve } from 'node:path'
+import { db } from '@core/db'
 import { Downloader } from '@lib/Downloader'
 import { Paths } from '@lib/paths'
 import { Unzip } from '@lib/Unzip'
 import { streamParseXml } from '@lib/XmlParser'
 import { exists, unlink } from 'fs-extra'
 import _ from 'lodash'
+import { DbSaver } from '@/lib/DbSaver'
 
 enum DataSyncType {
   download = 'download',
   unzip = 'unzip',
   parseXml = 'parseXml',
+  saveToDb = 'saveToDb',
 }
 
 enum DataSyncEventType {
@@ -48,7 +51,17 @@ interface UnzipProgressEventPayload {
   payload: UnzipProgress
 }
 
-export type DataSyncProgressEventPayload = XmlProgressEventPayload | DownloadProgressEventPayload | UnzipProgressEventPayload
+interface SaveToDbProgressEventPayload {
+  type: 'saveToDb'
+  event: 'progress'
+  payload: {
+    progress: number
+    savedCount: number
+    totalPending: number
+  }
+}
+
+export type DataSyncProgressEventPayload = XmlProgressEventPayload | DownloadProgressEventPayload | UnzipProgressEventPayload | SaveToDbProgressEventPayload
 
 interface DataSyncEventMap {
   progress: [DataSyncProgressEventPayload]
@@ -107,7 +120,6 @@ async function* chainEmitters(...emitters: EmitterItem[]): AsyncGenerator<DataSy
       }
     }
     finally {
-      // Clean up the 'end' listener in case of early exit or error.
       emitter.removeListener('finish', onEnd)
     }
   }
@@ -121,6 +133,15 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
   private xmlPath = resolve(this.unzipDestination, 'Metadata.xml')
   // private xmlPath = 'J:\\Projects\\ts\\musubu\\tools\\xml-schema\\xml\\Sample.xml'
 
+
+  constructor(
+    private downloaderFactory: (url: string, destination: string) => Downloader = (url, dest) => new Downloader(url, dest),
+    private unzipperFactory: (zipPath: string, outputPath: string) => Unzip = (zipPath, outPath) => new Unzip(zipPath, outPath),
+    private dbSaver = new DbSaver(),
+  ) {
+    super()
+  }
+
   public static getInstance(): DataSyncService {
     if (!DataSyncService.instance) {
       throw new Error('DataSyncService has not been initialized. Call run() first.')
@@ -128,8 +149,8 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     return DataSyncService.instance
   }
 
-  private download(url: string, destination: string): EmitterItem {
-    const downloader = new Downloader(url, destination)
+  private getDownloaderEmitterItem(url: string, destination: string): EmitterItem {
+    const downloader = this.downloaderFactory(url, destination)
 
     return {
       emitter: downloader,
@@ -138,8 +159,8 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     }
   }
 
-  private unzip(zipPath: string, outputPath: string): EmitterItem {
-    const unzip = new Unzip(zipPath, outputPath)
+  private getUnzipEmitterItem(zipPath: string, outputPath: string): EmitterItem {
+    const unzip = this.unzipperFactory(zipPath, outputPath)
 
     return {
       emitter: unzip,
@@ -148,16 +169,8 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     }
   }
 
-  private parseXml(xmlPath: string): EmitterItem {
-    const emitter = new EventEmitter<XmlParserEventMap>()
-
-    interface XmlParserEventMap {
-      error: [Error]
-      progress: [XmlProgress]
-      finish: []
-      // eslint-disable-next-line ts/no-explicit-any
-      data: [any]
-    }
+  private getXmlParserEmitterItem(xmlPath: string): EmitterItem {
+    const emitter = new EventEmitter()
 
     const start = async () => {
       const iterator = streamParseXml({
@@ -166,6 +179,10 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         onError(error) {
           emitter.emit('error', error)
         },
+        // eslint-disable-next-line ts/no-explicit-any
+        onData: async ({ type, ...rest }: any) => {
+          this.dbSaver.addData(type, rest)
+        },
       })
 
       for await (const event of iterator) {
@@ -173,6 +190,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
         if (event.progress === 100) {
           emitter.emit('finish')
+          break
         }
       }
     }
@@ -180,6 +198,18 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     return {
       emitter,
       type: DataSyncType.parseXml,
+      start,
+    }
+  }
+
+  private getSaveToDbEmitterItem(): EmitterItem {
+    const start = async () => {
+        await this.dbSaver.startSaving()
+    }
+
+    return {
+      emitter: this.dbSaver,
+      type: DataSyncType.saveToDb,
       start,
     }
   }
@@ -194,18 +224,19 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
   public async run() {
     if (await exists(resolve(Paths.userData, 'Metadata.zip'))) {
-      await unlink(resolve(Paths.userData, 'Metadata.zip2'))
+      await unlink(resolve(Paths.userData, 'Metadata.zip'))
     }
 
-    const downloader = this.download(this.downloadUrl, this.downloadDestination)
-    const unzipper = this.unzip(
-      this.downloadDestination,
-      this.unzipDestination,
-    )
-    const xmlParser = this.parseXml(this.xmlPath)
+    // const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
+    // const unzipper = this.getUnzipEmitterItem(
+    //   this.downloadDestination,
+    //   this.unzipDestination,
+    // )
+    const xmlParser = this.getXmlParserEmitterItem(this.xmlPath)
+    const dbSaver = this.getSaveToDbEmitterItem()
 
-    const chain = chainEmitters(downloader, unzipper, xmlParser)
-    // const chain = chainEmitters(xmlParser)
+    // const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
+    const chain = chainEmitters(xmlParser, dbSaver)
 
     const throttled = _.throttle((event: DataSyncEventPayload) => {
       this.emit('progress', {

@@ -71,6 +71,7 @@ async function build() {
       external: [
         '@musubu/tracker',
         'electron',
+        'better-sqlite3',
         ...builtinModules,
       ],
 
@@ -85,7 +86,7 @@ async function build() {
       bundle: true,
       format: 'cjs',
       platform: 'node',
-      external: ['electron', ...builtinModules],
+      external: ['electron', 'better-sqlite3', ...builtinModules],
       define,
     }),
   }
