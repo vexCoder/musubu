@@ -227,16 +227,16 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       await unlink(resolve(Paths.userData, 'Metadata.zip'))
     }
 
-    // const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
-    // const unzipper = this.getUnzipEmitterItem(
-    //   this.downloadDestination,
-    //   this.unzipDestination,
-    // )
+    const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
+    const unzipper = this.getUnzipEmitterItem(
+      this.downloadDestination,
+      this.unzipDestination,
+    )
     const xmlParser = this.getXmlParserEmitterItem(this.xmlPath)
     const dbSaver = this.getSaveToDbEmitterItem()
 
-    // const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
-    const chain = chainEmitters(xmlParser, dbSaver)
+    const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
+    // const chain = chainEmitters(xmlParser, dbSaver)
 
     const throttled = _.throttle((event: DataSyncEventPayload) => {
       this.emit('progress', {
