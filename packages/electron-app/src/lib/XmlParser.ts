@@ -31,12 +31,14 @@ interface StreamParseXmlOptions {
   filePath: string
   recordTags: string[]
   onError?: (error: Error) => void
+  onData?: (data: unknown) => void | Promise<void>
 }
 
 export async function* streamParseXml({
   filePath,
   recordTags,
   onError = () => {},
+  onData = () => {},
 }: StreamParseXmlOptions) {
   const sourceStream = createReadStream(filePath)
   const recordTagRegex = new RegExp(`^(${recordTags.join('|')})$`, 'i')
@@ -108,6 +110,8 @@ export async function* streamParseXml({
       const percentage = (bytesRead / totalSizeInBytes) * 100
       const data = yieldQueue.shift()
       lastReportedProgress = Math.floor(percentage)
+
+      await onData(data)
 
       yield {
         totalSize: totalSizeInBytes,

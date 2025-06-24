@@ -14,6 +14,8 @@ function getStepText(step: string | undefined): string {
       return 'Unzipping data...'
     case 'parseXml':
       return 'Parsing XML data...'
+    case 'saveToDb':
+      return 'Saving data to database...'
     default:
       return 'Initializing...'
   }
@@ -28,6 +30,7 @@ function RouteComponent() {
         'download',
         'unzip',
         'parseXml',
+        'saveToDb',
       ]
 
       setStep(data.type)
@@ -46,6 +49,10 @@ function RouteComponent() {
         progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
       }
 
+      if (data.type === 'saveToDb') {
+        progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
+      }
+
       setProgress(progress * 100)
     },
     onError(err) {
@@ -59,8 +66,8 @@ function RouteComponent() {
         loop
         autoPlay
         muted
-        src='/Looping_Line_Art_Background_Video.mp4'
-        className='absolute top-0 left-0 w-full h-full object-cover -z-10 opacity-15'
+        src='/Image_Generation_Request_Failed.mp4'
+        className='absolute top-0 left-0 w-full h-full object-cover -z-10 opacity-45'
       />
       
       <div className="flex flex-col items-center justify-center w-full h-screen text-white">
