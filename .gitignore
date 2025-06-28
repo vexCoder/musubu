@@ -50,3 +50,5 @@ yarn-error.log*
 *.jpeg
 *.png
 *.gif
+
+**/*.gen.*

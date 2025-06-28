@@ -171,7 +171,7 @@ export async function initializeDatabase() {
   await db.schema
     .createTable('PlatformAlternateNames')
     .ifNotExists()
-    .addColumn('Name', 'text', col => col.references('Platforms.Name'))
+    .addColumn('Name', 'text', col => col.notNull())
     .addColumn('Alternate', 'text')
     .addColumn('created_at', 'integer', col => col.defaultTo(new Date().getTime()))
     .addPrimaryKeyConstraint('pk_platform_alternate_names', ['Name', 'Alternate'])
@@ -180,22 +180,34 @@ export async function initializeDatabase() {
   await db.schema
     .createTable('GameAlternateNames')
     .ifNotExists()
-    .addColumn('DatabaseID', 'integer', col => col.references('Games.DatabaseID'))
+    .addColumn('DatabaseID', 'integer', col => col.notNull())
     .addColumn('Alternate', 'text')
     .addColumn('Region', 'text')
     .addColumn('created_at', 'integer', col => col.defaultTo(new Date().getTime()))
     .addPrimaryKeyConstraint('pk_game_alternate_names', ['DatabaseID', 'Alternate'])
     .execute()
 
+  await db.schema.createIndex('idx_game_alternate_names_database_id')
+    .on('GameAlternateNames')
+    .column('DatabaseID')
+    .ifNotExists()
+    .execute()
+
   await db.schema
     .createTable('GameImages')
     .ifNotExists()
-    .addColumn('DatabaseID', 'integer', col => col.references('Games.DatabaseID'))
+    .addColumn('DatabaseID', 'integer', col => col.notNull())
     .addColumn('FileName', 'text')
     .addColumn('Type', 'text')
     .addColumn('Region', 'text')
     .addColumn('CRC32', 'text')
     .addColumn('created_at', 'integer', col => col.defaultTo(new Date().getTime()))
     .addPrimaryKeyConstraint('pk_game_images', ['DatabaseID', 'FileName'])
+    .execute()
+
+  await db.schema.createIndex('idx_game_images_database_id')
+    .on('GameImages')
+    .column('DatabaseID')
+    .ifNotExists()
     .execute()
 }

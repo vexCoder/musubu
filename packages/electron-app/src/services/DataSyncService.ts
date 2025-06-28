@@ -3,7 +3,6 @@ import type { UnzipProgress } from '@lib/Unzip'
 import type { XmlProgress } from '@lib/XmlParser'
 import { EventEmitter, on } from 'node:events'
 import { resolve } from 'node:path'
-import { db } from '@core/db'
 import { Downloader } from '@lib/Downloader'
 import { Paths } from '@lib/paths'
 import { Unzip } from '@lib/Unzip'
@@ -133,7 +132,6 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
   private xmlPath = resolve(this.unzipDestination, 'Metadata.xml')
   // private xmlPath = 'J:\\Projects\\ts\\musubu\\tools\\xml-schema\\xml\\Sample.xml'
 
-
   constructor(
     private downloaderFactory: (url: string, destination: string) => Downloader = (url, dest) => new Downloader(url, dest),
     private unzipperFactory: (zipPath: string, outputPath: string) => Unzip = (zipPath, outPath) => new Unzip(zipPath, outPath),
@@ -204,7 +202,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
   private getSaveToDbEmitterItem(): EmitterItem {
     const start = async () => {
-        await this.dbSaver.startSaving()
+      await this.dbSaver.startSaving()
     }
 
     return {

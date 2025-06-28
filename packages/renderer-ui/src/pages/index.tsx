@@ -66,8 +66,8 @@ function RouteComponent() {
         loop
         autoPlay
         muted
-        src='/Image_Generation_Request_Failed.mp4'
-        className='absolute top-0 left-0 w-full h-full object-cover -z-10 opacity-45'
+        src='/Video_Generation_Fine_Line_Art.mp4'
+        className='fixed top-0 left-0 w-full h-full object-cover -z-10 scale-125'
       />
       
       <div className="flex flex-col items-center justify-center w-full h-screen text-white">
