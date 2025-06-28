@@ -88,12 +88,16 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
   // eslint-disable-next-line ts/no-explicit-any
   private dataMap: Map<string, any[]> = new Map()
   private dbInstance: typeof db = db
+  private isAppend: boolean = false
   private isSaving: boolean = false
   private totalProcessingTask: number = 0
+  private processedItemCount: number = 0
 
   constructor() {
     super()
-    this.dbWriteQueue = new PQueue({ concurrency: 1 }) // Limit concurrent DB writes
+    this.dbWriteQueue = new PQueue({ concurrency: 1 })
+
+    this.dbWriteQueue.pause()
 
     const debouncedCheck = _.debounce(() => {
       if (!this.dbWriteQueue.size && !this.getTotalPendingData()) {
@@ -103,12 +107,13 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
       }
     }, 500)
 
-    this.dbWriteQueue.on('completed', () => {
-      console.log(`[DbSaver] Active writes: ${this.dbWriteQueue.size} (Pending: ${this.dbWriteQueue.pending})`)
+    this.dbWriteQueue.on('completed', (result) => {
+      this.processedItemCount += result
+      console.log(`[DbSaver] Completed a batch of ${result} items. Items left to process: ${this.totalProcessingTask - this.processedItemCount}`)
       this.emit('progress', {
-        savedCount: this.dbWriteQueue.size,
-        totalPending: this.dbWriteQueue.pending,
-        progress: ((this.totalProcessingTask - this.dbWriteQueue.size) / this.totalProcessingTask) * 100,
+        savedCount: this.processedItemCount,
+        totalPending: this.totalProcessingTask - this.processedItemCount,
+        progress: (this.processedItemCount / this.totalProcessingTask) * 100,
       })
 
       debouncedCheck()
@@ -123,39 +128,41 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
     return total
   }
 
-  public async startSaving(): Promise<void> {
+  public resumeQueue() {
+    if (this.isAppend) {
+      this.isSaving = true
+    }
+  }
+
+  public async startAppend(): Promise<void> {
     if (this.isSaving) {
-      console.warn('[DbSaver] Saving process is already running.')
-      return // Prevent multiple concurrent saves
+      console.warn('[DbSaver] Cannot start appending data while already saving. Please wait for the current operation to finish.')
+      return
     }
 
-    this.isSaving = true
-    this.emit('progress', { savedCount: 0, totalPending: this.getTotalPendingData(), progress: 0 })
+    if (this.isAppend) {
+      console.warn('[DbSaver] Already in append mode. No need to start again.')
+      return
+    }
+
+    this.isAppend = true
 
     try {
       while (true) {
-        let processedBatchCount = 0 // Number of items processed in this loop iteration
-
         const currentKeys = Array.from(this.dataMap.keys())
-        if (currentKeys.length === 0 && this.dbWriteQueue.size === 0 && this.dbWriteQueue.pending === 0) {
-          break // No more data to process and no pending writes
-        }
 
         for (const key of currentKeys) {
           const list = this.dataMap.get(key)
-          if (!list || list.length === 0) {
+          if (!list?.length) {
             this.dataMap.delete(key)
             continue
           }
 
-          const batch = list.splice(0, 1000) // Take a batch
-          processedBatchCount += batch.length
-
-          this.totalProcessingTask += 1
-          // Enqueue the database operation, ensuring concurrency limits are respected
+          const batch = list.splice(0, 1000)
+          this.totalProcessingTask += batch.length
+          console.log(`[DbSaver] Processing ${batch.length} items for ${key}.`)
           this.dbWriteQueue.add(async () => {
             try {
-              // console.log(`[DbSaver] saving ${batch.length} items for ${key}`); // Log moved to main sync service
               if (key === 'Game') {
                 await this.dbInstance.insertInto('Games').values(batch.map(mapXmlGameToNewGame)).onConflict(oc => oc.column('DatabaseID').doUpdateSet(eb => ({
                   Name: eb.ref('Games.Name'),
@@ -219,20 +226,18 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
               console.error(`Error saving batch for ${key}:`, error)
             }
 
-            return batch.length // Return the number of items processed
+            return batch.length
           })
         }
 
-        if (!processedBatchCount && !this.dbWriteQueue.pending && !this.getTotalPendingData()) {
-          await this.dbWriteQueue.onIdle()
-          if (this.getTotalPendingData() === 0) {
-            break
-          }
+        if (!this.getTotalPendingData() && this.isSaving) {
+          this.isAppend = false
+          console.log('[DbSaver] All data has been processed. Now resuming queue.')
+          this.dbWriteQueue.start()
+          break
         }
 
-        if (!processedBatchCount) {
-          await new Promise(resolve => setTimeout(resolve, 50))
-        }
+        await new Promise(resolve => setTimeout(resolve, 10))
       }
       await this.dbWriteQueue.onIdle()
     }
@@ -251,5 +256,9 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
       this.dataMap.set(type, [])
     }
     this.dataMap.get(type)?.push(data)
+
+    if (!this.isAppend) {
+      this.startAppend()
+    }
   }
 }

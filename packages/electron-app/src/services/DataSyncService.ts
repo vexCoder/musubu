@@ -178,17 +178,18 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
           emitter.emit('error', error)
         },
         // eslint-disable-next-line ts/no-explicit-any
-        onData: async ({ type, ...rest }: any) => {
-          this.dbSaver.addData(type, rest)
-        },
+        onData: async ({ type, ...rest }: any) => this.dbSaver.addData(type, rest),
       })
 
+      let finished = false
       for await (const event of iterator) {
-        emitter.emit('progress', event)
+        if (!finished) {
+          emitter.emit('progress', event)
 
-        if (event.progress === 100) {
-          emitter.emit('finish')
-          break
+          if (event.progress === 100) {
+            emitter.emit('finish')
+            finished = true
+          }
         }
       }
     }
@@ -202,7 +203,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
   private getSaveToDbEmitterItem(): EmitterItem {
     const start = async () => {
-      await this.dbSaver.startSaving()
+      this.dbSaver.resumeQueue()
     }
 
     return {
@@ -225,16 +226,16 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       await unlink(resolve(Paths.userData, 'Metadata.zip'))
     }
 
-    const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
-    const unzipper = this.getUnzipEmitterItem(
-      this.downloadDestination,
-      this.unzipDestination,
-    )
+    // const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
+    // const unzipper = this.getUnzipEmitterItem(
+    //   this.downloadDestination,
+    //   this.unzipDestination,
+    // )
     const xmlParser = this.getXmlParserEmitterItem(this.xmlPath)
     const dbSaver = this.getSaveToDbEmitterItem()
 
-    const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
-    // const chain = chainEmitters(xmlParser, dbSaver)
+    // const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
+    const chain = chainEmitters(xmlParser, dbSaver)
 
     const throttled = _.throttle((event: DataSyncEventPayload) => {
       this.emit('progress', {

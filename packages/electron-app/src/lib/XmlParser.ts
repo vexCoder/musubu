@@ -111,7 +111,12 @@ export async function* streamParseXml({
       const data = yieldQueue.shift()
       lastReportedProgress = Math.floor(percentage)
 
-      await onData(data)
+      try {
+        await onData(data)
+      }
+      catch (error) {
+        onError(error as Error)
+      }
 
       yield {
         totalSize: totalSizeInBytes,
