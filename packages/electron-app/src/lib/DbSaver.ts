@@ -241,7 +241,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
           console.log(`[DbSaver] Starting append mode with ${this.pendingStartCount} items pending.`)
         }
 
-        if (this.isSaving && this.getTotalPendingData() > 0) {
+        if (this.isSaving && this.getTotalPendingData() > 0 && this.pendingStartCount) {
           this.emit('progress', {
             savedCount: 0,
             totalPending: 0,

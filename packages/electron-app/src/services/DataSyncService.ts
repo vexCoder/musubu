@@ -184,8 +184,12 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         },
         filter(data) {
           if (data.type === 'Game' || data.type === 'Platform') {
-            const name = `${data.Name}` as string
-            return !!name && name.trim() !== ''
+            if (!data.Name) {
+              console.warn(`Skipping ${data.type} with missing Name field:`, data)
+              return false
+            }
+            
+            return `${data.Name}`.trim() !== ''
           }
 
           return true
