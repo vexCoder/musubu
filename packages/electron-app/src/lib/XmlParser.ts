@@ -111,6 +111,10 @@ export async function* streamParseXml({
       const data = yieldQueue.shift()
       lastReportedProgress = Math.floor(percentage)
 
+      if (yieldQueue.length === 0) {
+        lastReportedProgress = 100
+      }
+
       try {
         await onData(data)
       }

@@ -185,10 +185,17 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         onData: async ({ type, ...rest }: any) => this.dbSaver.addData(type, rest),
       })
 
+      let finished = false
       for await (const event of iterator) {
-        emitter.emit('progress', event)
+        if (!finished) {
+          emitter.emit('progress', event)
+
+          if (event.progress === 100) {
+            emitter.emit('finish')
+            finished = true
+          }
+        }
       }
-      emitter.emit('finish')
     }
 
     return {
