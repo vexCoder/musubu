@@ -9,6 +9,11 @@ const dialect = new SqliteDialect({
 
 export const db = new Kysely<Database>({
   dialect,
+  log: (ev) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`SQL: ${ev.query.sql} - ${ev.query.parameters ? JSON.stringify(ev.query.parameters) : ''}`)
+    }
+  },
 })
 
 export interface Database {
@@ -39,7 +44,7 @@ export interface GamesTable {
   Publisher: string | null
 
   // internal fields
-  created_at: ColumnType<Date, string | undefined, never>
+  CreatedAt: ColumnType<number, string | undefined, never>
 }
 
 export type Game = Selectable<GamesTable>
@@ -64,7 +69,7 @@ export interface PlatformsTable {
   UseMameFiles: number
 
   // internal fields
-  created_at: ColumnType<Date, string | undefined, never>
+  CreatedAt: ColumnType<number, string | undefined, never>
 }
 
 export type Platform = Selectable<PlatformsTable>
@@ -76,7 +81,7 @@ export interface PlatformAlternateNamesTable {
   Alternate: string
 
   // internal fields
-  created_at: ColumnType<Date, string | undefined, never>
+  CreatedAt: ColumnType<number, string | undefined, never>
 }
 
 export type PlatformAlternateName = Selectable<PlatformAlternateNamesTable>
@@ -89,7 +94,7 @@ export interface GameAlternateNamesTable {
   Region: string | null
 
   // internal fields
-  created_at: ColumnType<Date, string | undefined, never>
+  CreatedAt: ColumnType<number, string | undefined, never>
 }
 
 export type GameAlternateName = Selectable<GameAlternateNamesTable>
@@ -104,7 +109,7 @@ export interface GameImagesTable {
   CRC32: string | null
 
   // internal fields
-  created_at: ColumnType<Date, string | undefined, never>
+  CreatedAt: ColumnType<number, string | undefined, never>
 }
 
 export type GameImage = Selectable<GameImagesTable>
@@ -140,7 +145,7 @@ export async function initializeDatabase() {
     .addColumn('Genres', 'text')
     .addColumn('Developer', 'text')
     .addColumn('Publisher', 'text')
-    .addColumn('created_at', 'integer', col => col.defaultTo(sql`strftime('%s', 'now')`))
+    .addColumn('CreatedAt', sql`INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))`)
     .execute()
 
   await db.schema.createIndex('idx_games_name')
@@ -173,7 +178,7 @@ export async function initializeDatabase() {
     .addColumn('Notes', 'text')
     .addColumn('Category', 'text')
     .addColumn('UseMameFiles', 'integer')
-    .addColumn('created_at', 'integer', col => col.defaultTo(sql`strftime('%s', 'now')`))
+    .addColumn('CreatedAt', sql`INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))`)
     .execute()
 
   await db.schema
@@ -181,7 +186,7 @@ export async function initializeDatabase() {
     .ifNotExists()
     .addColumn('Name', 'text', col => col.notNull())
     .addColumn('Alternate', 'text')
-    .addColumn('created_at', 'integer', col => col.defaultTo(sql`strftime('%s', 'now')`))
+    .addColumn('CreatedAt', sql`INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))`)
     .addPrimaryKeyConstraint('pk_platform_alternate_names', ['Name', 'Alternate'])
     .execute()
 
@@ -191,7 +196,7 @@ export async function initializeDatabase() {
     .addColumn('DatabaseID', 'integer', col => col.notNull())
     .addColumn('Alternate', 'text')
     .addColumn('Region', 'text')
-    .addColumn('created_at', 'integer', col => col.defaultTo(sql`strftime('%s', 'now')`))
+    .addColumn('CreatedAt', sql`INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))`)
     .addPrimaryKeyConstraint('pk_game_alternate_names', ['DatabaseID', 'Alternate'])
     .execute()
 
@@ -209,7 +214,7 @@ export async function initializeDatabase() {
     .addColumn('Type', 'text')
     .addColumn('Region', 'text')
     .addColumn('CRC32', 'text')
-    .addColumn('created_at', 'integer', col => col.defaultTo(sql`strftime('%s', 'now')`))
+    .addColumn('CreatedAt', sql`INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))`)
     .addPrimaryKeyConstraint('pk_game_images', ['DatabaseID', 'FileName'])
     .execute()
 

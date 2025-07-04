@@ -18,7 +18,7 @@ app.whenReady().then(async () => {
   const emitter = DataSyncService.initialize()
   emitter.run()
 
-  initializeDatabase()
+  await initializeDatabase()
   initializeLifecycle()
   initializeIpc()
 

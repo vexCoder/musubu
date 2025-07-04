@@ -168,7 +168,11 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
   }
 
   private getXmlParserEmitterItem(xmlPath: string): EmitterItem {
-    const emitter = new EventEmitter()
+    const emitter = new EventEmitter<{
+      progress: [XmlProgress]
+      error: [Error]
+      finish: []
+    }>()
 
     const start = async () => {
       const iterator = streamParseXml({
