@@ -118,6 +118,15 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
 
       debouncedCheck()
     })
+
+    this.dbWriteQueue.on('error', (error) => {
+      this.isSaving = false
+      this.emit('error', error)
+      console.error('[DbSaver] Error occurred while processing the queue:', error)
+      this.dbWriteQueue.clear()
+      this.dbWriteQueue.pause()
+      this.dataMap.clear()
+    })
   }
 
   private getTotalPendingData(): number {
@@ -162,68 +171,68 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
           this.totalProcessingTask += batch.length
           console.log(`[DbSaver] Processing ${batch.length} items for ${key}.`)
           this.dbWriteQueue.add(async () => {
-            try {
-              if (key === 'Game') {
-                await this.dbInstance.insertInto('Games').values(batch.map(mapXmlGameToNewGame)).onConflict(oc => oc.column('DatabaseID').doUpdateSet(eb => ({
-                  Name: eb.ref('excluded.Name'),
-                  Platform: eb.ref('excluded.Platform'),
-                  ReleaseDate: eb.ref('excluded.ReleaseDate'),
-                  ReleaseYear: eb.ref('excluded.ReleaseYear'),
-                  Overview: eb.ref('excluded.Overview'),
-                  MaxPlayers: eb.ref('excluded.MaxPlayers'),
-                  ReleaseType: eb.ref('excluded.ReleaseType'),
-                  Cooperative: eb.ref('excluded.Cooperative'),
-                  VideoURL: eb.ref('excluded.VideoURL'),
-                  CommunityRating: eb.ref('excluded.CommunityRating'),
-                  WikipediaURL: eb.ref('excluded.WikipediaURL'),
-                  ESRB: eb.ref('excluded.ESRB'),
-                  CommunityRatingCount: eb.ref('excluded.CommunityRatingCount'),
-                  Genres: eb.ref('excluded.Genres'),
-                  Developer: eb.ref('excluded.Developer'),
-                  Publisher: eb.ref('excluded.Publisher'),
-                }))).execute()
-              }
-              else if (key === 'Platform') {
-                await this.dbInstance.insertInto('Platforms').values(batch.map(mapXmlPlatformToNewPlatform)).onConflict(oc => oc.column('Name').doUpdateSet(eb => ({
-                  Emulated: eb.ref('excluded.Emulated'),
-                  ReleaseDate: eb.ref('excluded.ReleaseDate'),
-                  Developer: eb.ref('excluded.Developer'),
-                  Manufacturer: eb.ref('excluded.Manufacturer'),
-                  Cpu: eb.ref('excluded.Cpu'),
-                  Memory: eb.ref('excluded.Memory'),
-                  Graphics: eb.ref('excluded.Graphics'),
-                  Sound: eb.ref('excluded.Sound'),
-                  Display: eb.ref('excluded.Display'),
-                  Media: eb.ref('excluded.Media'),
-                  MaxControllers: eb.ref('excluded.MaxControllers'),
-                  Notes: eb.ref('excluded.Notes'),
-                  Category: eb.ref('excluded.Category'),
-                  UseMameFiles: eb.ref('excluded.UseMameFiles'),
-                }))).execute()
-              }
-              else if (key === 'PlatformAlternateName') {
-                await this.dbInstance.insertInto('PlatformAlternateNames').values(batch.map(mapXmlPlatformAlternateNameToNewPlatformAlternateName)).onConflict(oc => oc.columns(['Name', 'Alternate']).doUpdateSet(eb => ({
-                  Name: eb.ref('excluded.Name'),
-                  Alternate: eb.ref('excluded.Alternate'),
-                }))).execute()
-              }
-              else if (key === 'GameAlternateName') {
-                await this.dbInstance.insertInto('GameAlternateNames').values(batch.map(mapXmlGameAlternateNameToNewGameAlternateName)).onConflict(oc => oc.columns(['DatabaseID', 'Alternate']).doUpdateSet(eb => ({
-                  Alternate: eb.ref('excluded.Alternate'),
-                  Region: eb.ref('excluded.Region'),
-                }))).execute()
-              }
-              else if (key === 'GameImage') {
-                await this.dbInstance.insertInto('GameImages').values(batch.map(mapXmlGameImageToNewGameImage)).onConflict(oc => oc.columns(['DatabaseID', 'FileName']).doUpdateSet(eb => ({
-                  FileName: eb.ref('excluded.FileName'),
-                  Type: eb.ref('excluded.Type'),
-                  Region: eb.ref('excluded.Region'),
-                  CRC32: eb.ref('excluded.CRC32'),
-                }))).execute()
-              }
+            if (key === 'Game') {
+              await this.dbInstance.insertInto('Games').values(batch.map(mapXmlGameToNewGame)).onConflict(oc => oc.column('DatabaseID').doUpdateSet(eb => ({
+                Name: eb.ref('excluded.Name'),
+                Platform: eb.ref('excluded.Platform'),
+                ReleaseDate: eb.ref('excluded.ReleaseDate'),
+                ReleaseYear: eb.ref('excluded.ReleaseYear'),
+                Overview: eb.ref('excluded.Overview'),
+                MaxPlayers: eb.ref('excluded.MaxPlayers'),
+                ReleaseType: eb.ref('excluded.ReleaseType'),
+                Cooperative: eb.ref('excluded.Cooperative'),
+                VideoURL: eb.ref('excluded.VideoURL'),
+                CommunityRating: eb.ref('excluded.CommunityRating'),
+                WikipediaURL: eb.ref('excluded.WikipediaURL'),
+                ESRB: eb.ref('excluded.ESRB'),
+                CommunityRatingCount: eb.ref('excluded.CommunityRatingCount'),
+                Genres: eb.ref('excluded.Genres'),
+                Developer: eb.ref('excluded.Developer'),
+                Publisher: eb.ref('excluded.Publisher'),
+              }))).execute()
             }
-            catch (error) {
-              console.error(`Error saving batch for ${key}:`, error)
+            else if (key === 'Platform') {
+              await this.dbInstance.insertInto('Platforms').values(batch.map(mapXmlPlatformToNewPlatform)).onConflict(oc => oc.column('Name').doUpdateSet(eb => ({
+                Emulated: eb.ref('excluded.Emulated'),
+                ReleaseDate: eb.ref('excluded.ReleaseDate'),
+                Developer: eb.ref('excluded.Developer'),
+                Manufacturer: eb.ref('excluded.Manufacturer'),
+                Cpu: eb.ref('excluded.Cpu'),
+                Memory: eb.ref('excluded.Memory'),
+                Graphics: eb.ref('excluded.Graphics'),
+                Sound: eb.ref('excluded.Sound'),
+                Display: eb.ref('excluded.Display'),
+                Media: eb.ref('excluded.Media'),
+                MaxControllers: eb.ref('excluded.MaxControllers'),
+                Notes: eb.ref('excluded.Notes'),
+                Category: eb.ref('excluded.Category'),
+                UseMameFiles: eb.ref('excluded.UseMameFiles'),
+              }))).execute()
+            }
+            else if (key === 'PlatformAlternateName') {
+              await this.dbInstance.insertInto('PlatformAlternateNames').values(batch.map(mapXmlPlatformAlternateNameToNewPlatformAlternateName)).onConflict(oc => oc.columns(['Name', 'Alternate']).doUpdateSet(eb => ({
+                Name: eb.ref('excluded.Name'),
+                Alternate: eb.ref('excluded.Alternate'),
+              }))).execute()
+            }
+            else if (key === 'GameAlternateName') {
+              await this.dbInstance.insertInto('GameAlternateNames').values(batch.map(mapXmlGameAlternateNameToNewGameAlternateName)).onConflict(oc => oc.columns(['DatabaseID', 'Alternate']).doUpdateSet(eb => ({
+                Alternate: eb.ref('excluded.Alternate'),
+                Region: eb.ref('excluded.Region'),
+              }))).execute()
+            }
+            else if (key === 'GameImage') {
+              await this.dbInstance.insertInto('GameImages').values(batch.map(mapXmlGameImageToNewGameImage)).onConflict(oc => oc.columns(['DatabaseID', 'FileName']).doUpdateSet(eb => ({
+                FileName: eb.ref('excluded.FileName'),
+                Type: eb.ref('excluded.Type'),
+                Region: eb.ref('excluded.Region'),
+                CRC32: eb.ref('excluded.CRC32'),
+              }))).execute()
+            }
+
+            const test = true
+            if (test) {
+              throw new Error('Test error to check error handling in DbSaver')
             }
 
             return batch.length
@@ -237,7 +246,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
           break
         }
 
-        await new Promise(resolve => setTimeout(resolve, 10))
+        await new Promise(resolve => setTimeout(resolve, 50))
       }
       await this.dbWriteQueue.onIdle()
     }

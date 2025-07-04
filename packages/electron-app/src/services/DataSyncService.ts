@@ -257,9 +257,9 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       if (event.event === DataSyncEventType.progress) {
         throttled(event)
       }
-
-      if (event.type === DataSyncType.parseXml && event.event === DataSyncEventType.error) {
-        console.error('Error during XML parsing:', event.payload)
+      if (event.event === DataSyncEventType.error) {
+        console.error('Data sync error:', event.payload)
+        return
       }
     }
 
