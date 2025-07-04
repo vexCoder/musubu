@@ -45,21 +45,7 @@ function RouteComponent() {
 
       let progress = step.indexOf(dataType) / step.length
 
-      if (data.type === 'parseXml') {
-        progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
-      }
-
-      if (data.type === 'download') {
-        progress = progress + ((data.payload?.percentage || 0) / 100 / step.length)
-      }
-
-      if (data.type === 'unzip') {
-        progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
-      }
-
-      if (data.type === 'saveToDb') {
-        progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
-      }
+      progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
 
       setProgress(progress * 100)
     },
