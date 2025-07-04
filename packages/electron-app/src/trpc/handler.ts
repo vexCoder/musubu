@@ -274,7 +274,6 @@ export class TrpcIpcManager<
   private broadcast(message: TRPCResponse): void {
     for (const window of WindowManager.getAllWindows()) {
       if (!window.isDestroyed()) {
-        console.log('Broadcasting message to window:', window.id, message)
         window.webContents.send('trpc-message', message)
       }
     }

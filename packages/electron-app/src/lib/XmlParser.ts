@@ -31,12 +31,16 @@ interface StreamParseXmlOptions {
   filePath: string
   recordTags: string[]
   onError?: (error: Error) => void
+  onData?: (data: unknown) => void | Promise<void>
+  filter?: (data: Record<string, ParsedType>) => boolean
 }
 
 export async function* streamParseXml({
   filePath,
   recordTags,
   onError = () => {},
+  onData = () => {},
+  filter,
 }: StreamParseXmlOptions) {
   const sourceStream = createReadStream(filePath)
   const recordTagRegex = new RegExp(`^(${recordTags.join('|')})$`, 'i')
@@ -76,6 +80,11 @@ export async function* streamParseXml({
     // We've reached the end of a record.
     if (recordTagRegex.test(tagName) && currentRecord && currentRecord.type === tagName) {
       // console.log('end', tagName)
+      if (filter && !filter(currentRecord)) {
+        currentRecord = null
+        return
+      }
+
       yieldQueue.push(currentRecord)
       currentRecord = null
       notifyConsumer()
@@ -87,11 +96,18 @@ export async function* streamParseXml({
   })
 
   saxStream.on('error', (err) => {
+    console.error(`Error while parsing XML file: ${filePath}`, err)
     streamError = err
     notifyConsumer()
   })
 
   sourceStream.on('end', () => {
+    console.log(`Stream ended for file: ${filePath}`)
+    notifyConsumer()
+  })
+
+  sourceStream.on('close', () => {
+    console.log(`Stream closed for file: ${filePath}`)
     notifyConsumer()
   })
 
@@ -109,6 +125,17 @@ export async function* streamParseXml({
       const data = yieldQueue.shift()
       lastReportedProgress = Math.floor(percentage)
 
+      try {
+        await onData(data)
+      }
+      catch (error) {
+        onError(error as Error)
+      }
+
+      if (yieldQueue.length === 0 && bytesRead >= totalSizeInBytes) {
+        lastReportedProgress = 100
+      }
+
       yield {
         totalSize: totalSizeInBytes,
         bytesRead,
@@ -119,9 +146,15 @@ export async function* streamParseXml({
     }
 
     else {
+      if (yieldQueue.length === 0 && sourceStream.closed) {
+        break
+      }
+
       await new Promise<void>((resolve) => {
         notifyConsumer = resolve
       })
     }
   }
+
+  console.log(`Finished parsing XML file: ${filePath}`)
 }

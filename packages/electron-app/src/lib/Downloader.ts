@@ -13,7 +13,7 @@ class DownloaderError extends Error {
 }
 
 export interface DownloadProgress {
-  percentage: number
+  progress: number
   downloadedBytes: number
   totalBytes: number | null
 }
@@ -126,7 +126,7 @@ export class Downloader extends EventEmitter<EventMap> {
       if (this.totalBytes) {
         const percentage = (this.downloadedBytes / this.totalBytes) * 100
         this.emit('progress', {
-          percentage: Math.min(percentage, 100), // Ensure percentage does not exceed 100
+          progress: Math.min(percentage, 100), // Ensure percentage does not exceed 100
           downloadedBytes: this.downloadedBytes,
           totalBytes: this.totalBytes,
         })

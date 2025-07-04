@@ -14,6 +14,10 @@ function getStepText(step: string | undefined): string {
       return 'Unzipping data...'
     case 'parseXml':
       return 'Parsing XML data...'
+    case 'saveToDb:Append':
+      return 'Appending data to queue...'
+    case 'saveToDb:Save':
+      return 'Saving data to database...'
     default:
       return 'Initializing...'
   }
@@ -28,23 +32,20 @@ function RouteComponent() {
         'download',
         'unzip',
         'parseXml',
+        'saveToDb:Append',
+        'saveToDb:Save',
       ]
 
-      setStep(data.type)
-
-      let progress = step.indexOf(data.type) / step.length
-
-      if (data.type === 'parseXml') {
-        progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
+      let dataType = data.type as string
+      if (data.type === 'saveToDb') {
+        dataType = `${data.type}:${data.payload.type}`
       }
 
-      if (data.type === 'download') {
-        progress = progress + ((data.payload?.percentage || 0) / 100 / step.length)
-      }
+      setStep(dataType)
 
-      if (data.type === 'unzip') {
-        progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
-      }
+      let progress = step.indexOf(dataType) / step.length
+
+      progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
 
       setProgress(progress * 100)
     },
@@ -59,8 +60,8 @@ function RouteComponent() {
         loop
         autoPlay
         muted
-        src='/Looping_Line_Art_Background_Video.mp4'
-        className='absolute top-0 left-0 w-full h-full object-cover -z-10 opacity-15'
+        src='/Video_Generation_Fine_Line_Art.mp4'
+        className='fixed top-0 left-0 w-full h-full object-cover -z-10 scale-125'
       />
       
       <div className="flex flex-col items-center justify-center w-full h-screen text-white">
