@@ -78,7 +78,7 @@ function mapXmlGameImageToNewGameImage(data: any): NewGameImage {
 
 // --- New: DbSaver Class for emitting DB events ---
 interface DbSaverEventMap {
-  progress: [{ savedCount: number, totalPending: number, progress: number }]
+  progress: [{ savedCount: number, totalPending: number, progress: number, type: 'Save' | 'Append' }]
   finish: []
   error: [Error]
 }
@@ -90,6 +90,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
   private dbInstance: typeof db = db
   private isAppend: boolean = false
   private isSaving: boolean = false
+  private pendingStartCount: number = 0
   private totalProcessingTask: number = 0
   private processedItemCount: number = 0
 
@@ -114,6 +115,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
         savedCount: this.processedItemCount,
         totalPending: this.totalProcessingTask - this.processedItemCount,
         progress: (this.processedItemCount / this.totalProcessingTask) * 100,
+        type: 'Save',
       })
 
       debouncedCheck()
@@ -230,19 +232,29 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
               }))).execute()
             }
 
-            const test = true
-            if (test) {
-              throw new Error('Test error to check error handling in DbSaver')
-            }
-
             return batch.length
           })
         }
 
-        if (!this.getTotalPendingData() && this.isSaving) {
+        if (this.isSaving && !this.pendingStartCount) {
+          this.pendingStartCount = this.getTotalPendingData()
+          console.log(`[DbSaver] Starting append mode with ${this.pendingStartCount} items pending.`)
+        }
+
+        if (this.isSaving && this.getTotalPendingData() > 0) {
+          this.emit('progress', {
+            savedCount: 0,
+            totalPending: 0,
+            progress: (this.pendingStartCount - this.getTotalPendingData()) / this.pendingStartCount * 100,
+            type: 'Append',
+          })
+        }
+
+        // if (!this.getTotalPendingData() && this.isSaving) {
+        if (this.isSaving && !this.getTotalPendingData()) {
           this.isAppend = false
-          console.log('[DbSaver] All data has been processed. Now resuming queue.')
           this.dbWriteQueue.start()
+          console.log('[DbSaver] No more data to process. Stopping append mode.')
           break
         }
 

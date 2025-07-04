@@ -57,6 +57,7 @@ interface SaveToDbProgressEventPayload {
     progress: number
     savedCount: number
     totalPending: number
+    type: 'Save' | 'Append'
   }
 }
 
@@ -130,7 +131,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
   private downloadDestination = resolve(Paths.userData, 'Metadata.zip')
   private unzipDestination = resolve(Paths.userData, 'Metadata')
   private xmlPath = resolve(this.unzipDestination, 'Metadata.xml')
-  // private xmlPath = 'J:\\Projects\\ts\\musubu\\tools\\xml-schema\\xml\\Sample.xml'
+  // private xmlPath = 'J:\\Projects\\ts\\musubu\\.test\\xml-schema\\xml\\Sample.xml'
 
   constructor(
     private downloaderFactory: (url: string, destination: string) => Downloader = (url, dest) => new Downloader(url, dest),
@@ -181,21 +182,22 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         onError(error) {
           emitter.emit('error', error)
         },
+        filter(data) {
+          if (data.type === 'Game' || data.type === 'Platform') {
+            const name = `${data.Name}` as string
+            return !!name && name.trim() !== ''
+          }
+
+          return true
+        },
         // eslint-disable-next-line ts/no-explicit-any
         onData: async ({ type, ...rest }: any) => this.dbSaver.addData(type, rest),
       })
 
-      let finished = false
       for await (const event of iterator) {
-        if (!finished) {
-          emitter.emit('progress', event)
-
-          if (event.progress === 100) {
-            emitter.emit('finish')
-            finished = true
-          }
-        }
+        emitter.emit('progress', event)
       }
+      emitter.emit('finish')
     }
 
     return {
@@ -230,16 +232,16 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       await unlink(resolve(Paths.userData, 'Metadata.zip'))
     }
 
-    // const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
-    // const unzipper = this.getUnzipEmitterItem(
-    //   this.downloadDestination,
-    //   this.unzipDestination,
-    // )
+    const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
+    const unzipper = this.getUnzipEmitterItem(
+      this.downloadDestination,
+      this.unzipDestination,
+    )
     const xmlParser = this.getXmlParserEmitterItem(this.xmlPath)
     const dbSaver = this.getSaveToDbEmitterItem()
 
-    // const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
-    const chain = chainEmitters(xmlParser, dbSaver)
+    const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
+    // const chain = chainEmitters(xmlParser, dbSaver)
 
     const throttled = _.throttle((event: DataSyncEventPayload) => {
       this.emit('progress', {

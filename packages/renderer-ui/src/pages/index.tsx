@@ -14,7 +14,9 @@ function getStepText(step: string | undefined): string {
       return 'Unzipping data...'
     case 'parseXml':
       return 'Parsing XML data...'
-    case 'saveToDb':
+    case 'saveToDb:Append':
+      return 'Appending data to queue...'
+    case 'saveToDb:Save':
       return 'Saving data to database...'
     default:
       return 'Initializing...'
@@ -30,12 +32,18 @@ function RouteComponent() {
         'download',
         'unzip',
         'parseXml',
-        'saveToDb',
+        'saveToDb:Append',
+        'saveToDb:Save',
       ]
 
-      setStep(data.type)
+      let dataType = data.type as string
+      if (data.type === 'saveToDb') {
+        dataType = `${data.type}:${data.payload.type}`
+      }
 
-      let progress = step.indexOf(data.type) / step.length
+      setStep(dataType)
+
+      let progress = step.indexOf(dataType) / step.length
 
       if (data.type === 'parseXml') {
         progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
