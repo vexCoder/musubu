@@ -44,7 +44,7 @@ export interface GamesTable {
   Publisher: string | null
 
   // internal fields
-  CreatedAt: ColumnType<number, string | undefined, never>
+  CreatedAt: ColumnType<number, undefined, never>
 }
 
 export type Game = Selectable<GamesTable>
@@ -69,7 +69,7 @@ export interface PlatformsTable {
   UseMameFiles: number
 
   // internal fields
-  CreatedAt: ColumnType<number, string | undefined, never>
+  CreatedAt: ColumnType<number, undefined, never>
 }
 
 export type Platform = Selectable<PlatformsTable>
@@ -81,7 +81,7 @@ export interface PlatformAlternateNamesTable {
   Alternate: string
 
   // internal fields
-  CreatedAt: ColumnType<number, string | undefined, never>
+  CreatedAt: ColumnType<number, undefined, never>
 }
 
 export type PlatformAlternateName = Selectable<PlatformAlternateNamesTable>
@@ -94,7 +94,7 @@ export interface GameAlternateNamesTable {
   Region: string | null
 
   // internal fields
-  CreatedAt: ColumnType<number, string | undefined, never>
+  CreatedAt: ColumnType<number, undefined, never>
 }
 
 export type GameAlternateName = Selectable<GameAlternateNamesTable>
@@ -109,7 +109,7 @@ export interface GameImagesTable {
   CRC32: string | null
 
   // internal fields
-  CreatedAt: ColumnType<number, string | undefined, never>
+  CreatedAt: ColumnType<number, undefined, never>
 }
 
 export type GameImage = Selectable<GameImagesTable>

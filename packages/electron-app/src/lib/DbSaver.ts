@@ -10,16 +10,16 @@ function mapXmlGameToNewGame(data: any): NewGame {
     Name: data.Name,
     Platform: data.Platform || null,
     ReleaseDate: data.ReleaseDate || null,
-    ReleaseYear: data.ReleaseYear ? Number.parseInt(data.ReleaseYear, 10) : null,
+    ReleaseYear: data.ReleaseYear,
     Overview: data.Overview || null,
-    MaxPlayers: data.MaxPlayers ? Number.parseInt(data.MaxPlayers, 10) : null,
+    MaxPlayers: data.MaxPlayers,
     ReleaseType: data.ReleaseType || null,
-    Cooperative: data.Cooperative === 'true' ? 1 : 0,
+    Cooperative: data.Cooperative ? 1 : 0,
     VideoURL: data.VideoURL || null,
-    CommunityRating: Number.parseFloat(data.CommunityRating) || 0,
+    CommunityRating: data.CommunityRating,
     WikipediaURL: data.WikipediaURL || null,
     ESRB: data.ESRB || null,
-    CommunityRatingCount: data.CommunityRatingCount ? Number.parseInt(data.CommunityRatingCount, 10) : null,
+    CommunityRatingCount: data.CommunityRatingCount,
     Genres: data.Genres || null,
     Developer: data.Developer || null,
     Publisher: data.Publisher || null,
@@ -31,7 +31,7 @@ function mapXmlGameToNewGame(data: any): NewGame {
 function mapXmlPlatformToNewPlatform(data: any): NewPlatform {
   return {
     Name: data.Name,
-    Emulated: data.Emulated === 'true' ? 1 : 0,
+    Emulated: data.Emulated ? 1 : 0,
     ReleaseDate: data.ReleaseDate || null,
     Developer: data.Developer || null,
     Manufacturer: data.Manufacturer || null,
@@ -41,10 +41,10 @@ function mapXmlPlatformToNewPlatform(data: any): NewPlatform {
     Sound: data.Sound || null,
     Display: data.Display || null,
     Media: data.Media || null,
-    MaxControllers: data.MaxControllers ? Number.parseInt(data.MaxControllers, 10) : null,
+    MaxControllers: data.MaxControllers,
     Notes: data.Notes || null,
     Category: data.Category || null,
-    UseMameFiles: data.UseMameFiles === 'true' ? 1 : 0,
+    UseMameFiles: data.UseMameFiles ? 1 : 0,
   }
 }
 
