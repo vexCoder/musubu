@@ -1,15 +1,9 @@
-import type { AppRouter } from '@musubu/electron-app/trpc/router'
 import { QueryClient } from '@tanstack/react-query'
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 import { useState } from 'react'
+import { Toaster } from 'sonner'
+import DataSyncProvider from '@/context/DataSyncProvider'
 import { electronLink, trpc } from '@/lib/trpc'
-
-// Register the router instance for type safety
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: AppRouter
-  }
-}
 
 export const Route = createRootRoute({
   component: Root,
@@ -37,8 +31,12 @@ function Root() {
   )
 
   return (
+    // eslint-disable-next-line react/no-context-provider
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <Outlet />
+      <DataSyncProvider>
+        <Toaster />
+        <Outlet />
+      </DataSyncProvider>
     </trpc.Provider>
   )
 }

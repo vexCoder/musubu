@@ -18,6 +18,16 @@ export interface DownloadProgress {
   totalBytes: number | null
 }
 
+interface DownloaderHeadResponse {
+  ok: boolean
+  status: number
+  statusText: string
+  etag: string | null
+  lastModified: string | null
+  contentType: string
+  contentLength: number
+}
+
 interface EventMap {
   error: [DownloaderError]
   progress: [DownloadProgress] // Progress percentage
@@ -28,6 +38,7 @@ export class Downloader extends EventEmitter<EventMap> {
   private downloadedBytes: number = 0
   private totalBytes: number | null = 0
   private isResuming: boolean = false
+  private isFinished: boolean = false
 
   constructor(private url: string, private destination: string) {
     super()
@@ -38,6 +49,11 @@ export class Downloader extends EventEmitter<EventMap> {
 
   public async startDownload(): Promise<void> {
     try {
+      this.downloadedBytes = 0
+      this.isResuming = false
+      this.totalBytes = 0
+      this.isFinished = false
+
       await this.prepareDownload()
       await this.executeDownload()
     }
@@ -52,16 +68,64 @@ export class Downloader extends EventEmitter<EventMap> {
     }
   }
 
-  private async prepareDownload() {
+  public async fetchHead(): Promise<DownloaderHeadResponse> {
     try {
-      const headResponse = await fetch(this.url, { method: 'HEAD' })
+      const response = await fetch(this.url, { method: 'HEAD' })
 
-      if (!headResponse.ok) {
-        throw new DownloaderError(`HTTP Error: ${headResponse.status} ${headResponse.statusText}`)
+      if (!response.ok) {
+        throw new DownloaderError(`HTTP Error: ${response.status} ${response.statusText}`)
       }
 
-      const contentLength = headResponse.headers.get('content-length')
-      this.totalBytes = contentLength ? Number(contentLength) : null
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.startsWith('application/')) {
+        throw new DownloaderError('Invalid content type for download.')
+      }
+
+      const contentLength = Number(response.headers.get('content-length'))
+      if (contentLength && Number.isNaN(contentLength)) {
+        throw new DownloaderError('Content length is not a valid number.')
+      }
+
+      let etag = response.headers.get('etag') || null
+      if (!etag || etag === 'null') {
+        throw new DownloaderError('ETag header is missing or invalid.')
+      }
+      console.log(`ETag: ${etag}`)
+      etag = etag.replace(/"|\\"/g, '') // Clean up ETag quotes
+      console.log(`ETag: ${etag}`)
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        etag,
+        lastModified: response.headers.get('last-modified') || null,
+        contentType,
+        contentLength,
+      }
+    }
+    catch (error) {
+      return {
+        ok: false,
+        status: (error as NodeJS.ErrnoException).code === 'ENOTFOUND' ? 404 : 500,
+        statusText: (error as NodeJS.ErrnoException).message || 'Network error',
+        etag: null,
+        lastModified: null,
+        contentType: 'application/octet-stream',
+        contentLength: 0,
+      }
+    }
+  }
+
+  private async prepareDownload() {
+    try {
+      const head = await this.fetchHead()
+
+      if (!head.ok) {
+        throw new DownloaderError(`HTTP Error: ${head.status} ${head.statusText}`)
+      }
+
+      this.totalBytes = head.contentLength
 
       // Check if we can resume a partial download
       await this.checkResumability()
@@ -83,7 +147,7 @@ export class Downloader extends EventEmitter<EventMap> {
       if (stats.size > 0 && this.totalBytes) {
         if (stats.size === this.totalBytes) {
           console.log('\nFile is already fully downloaded.')
-          throw new DownloaderError('File is already fully downloaded.')
+          this.isFinished = true
         }
         if (stats.size < this.totalBytes) {
           this.downloadedBytes = stats.size
@@ -96,11 +160,17 @@ export class Downloader extends EventEmitter<EventMap> {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error // Rethrow unexpected errors
       }
-      // File doesn't exist, which is fine. Start from scratch.
     }
   }
 
   private async executeDownload() {
+    console.log(`Starting download from ${this.url} to ${this.destination}`, { isFinished: this.isFinished, isResuming: this.isResuming })
+    if (this.isFinished) {
+      console.log('Download is already complete. No action taken.')
+      this.emit('finish')
+      return
+    }
+
     const headers: HeadersInit = this.isResuming
       ? { Range: `bytes=${this.downloadedBytes}-` }
       : {}

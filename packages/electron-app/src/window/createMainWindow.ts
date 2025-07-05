@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
-import { BrowserWindow } from 'electron'
 import { Settings } from '@core/settings'
+import { BrowserWindow } from 'electron'
 
 export default function createMainWindow() {
   const win = new BrowserWindow({
