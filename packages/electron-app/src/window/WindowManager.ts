@@ -1,6 +1,6 @@
+import waitForUrl from '@lib/waitForUrl'
 import createMainWindow from '@window/createMainWindow'
 import createOverlayWindow from '@window/createOverlayWindow'
-import awaitUrl from '@/lib/awaitUrl'
 
 export class WindowManager {
   private static mainWindow: Electron.BrowserWindow | null = null
@@ -56,6 +56,6 @@ export class WindowManager {
       throw new Error('Window is destroyed')
     }
 
-    await awaitUrl(process.env.RENDERER_URL)
+    await waitForUrl(process.env.RENDERER_URL)
   }
 }
