@@ -6,6 +6,14 @@ import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
+const DATASYNC_STEPS = [
+  'download',
+  'unzip',
+  'parseXml',
+  'saveToDb:Append',
+  'saveToDb:Save',
+]
+
 export default function DataSyncProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const [step, setStep] = useState<string>()
@@ -37,14 +45,6 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
       return
     }
 
-    const step = [
-      'download',
-      'unzip',
-      'parseXml',
-      'saveToDb:Append',
-      'saveToDb:Save',
-    ]
-
     let dataType = data.type as string
     if (data.type === 'saveToDb') {
       dataType = `${data.type}:${data.payload.type}`
@@ -52,16 +52,15 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
 
     setStep(dataType)
 
-    let progress = step.indexOf(dataType) / step.length
+    let progress = DATASYNC_STEPS.indexOf(dataType) / DATASYNC_STEPS.length
 
-    progress = progress + ((data.payload?.progress || 0) / 100 / step.length)
+    progress = progress + ((data.payload?.progress || 0) / 100 / DATASYNC_STEPS.length)
 
     setProgress(progress * 100)
   }
 
   trpc.sync.onDatasync.useSubscription(undefined, {
     onData(data) {
-      console.log('Payload received:', data)
       if (data.event === 'start') {
         handleStart(data)
       }

@@ -243,7 +243,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       const execute = DataSyncService.instance.run.bind(DataSyncService.instance)
 
       const job = CronJob.from({
-        cronTime: '00 00 */1 * * *', // Every day at midnight
+        cronTime: '00 00 * * * *',
         onTick: async () => {
           console.log('Executing sync job...')
           const nextInvocation = job.nextDate().toUnixInteger()
@@ -258,28 +258,29 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     return DataSyncService.instance
   }
 
-  private async getEtag() {
+  public async checkForUpdates() {
     const head = await this.downloader.fetchHead()
 
     if (!head.ok || head.status !== 200 || !head.etag || !head.contentLength || head.contentLength <= 0) {
       throw new Error(`Failed to check for updates: ${head.status} ${head.statusText}`)
     }
 
-    return head.etag
-  }
-
-  public async checkForUpdates() {
-    const etag = await this.getEtag()
-
     const currentEtag = this.settings.get('gamesDbVersion')
 
-    if (currentEtag === etag) {
+    if (currentEtag === head.etag) {
       console.log('No updates available. Current version is up-to-date.')
-      return false
+      return {
+        isUpdateAvailable: false,
+        currentVersion: currentEtag,
+      }
     }
 
-    console.log('Updates available. Current version:', currentEtag, 'New version:', etag)
-    return true
+    console.log('Updates available. Current version:', currentEtag, 'New version:', head.etag)
+    return {
+      isUpdateAvailable: true,
+      currentVersion: currentEtag,
+      newVersion: head.etag,
+    }
   }
 
   public async run() {
@@ -290,11 +291,13 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
     DataSyncService.isRunning = true
 
-    const check = await this.checkForUpdates()
+    const {
+      isUpdateAvailable,
+      newVersion,
+    } = await this.checkForUpdates()
     const isFirstRun = !this.settings.get('gamesDbVersion')
-    const tag = await this.getEtag()
 
-    if (!check) {
+    if (!isUpdateAvailable) {
       console.log('No updates available. Skipping data sync.')
       DataSyncService.isRunning = false
       this.emit('update', {
@@ -349,7 +352,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       }
     }
 
-    this.settings.set('gamesDbVersion', tag)
+    this.settings.set('gamesDbVersion', newVersion)
     DataSyncService.isRunning = false
     console.log('Data sync completed successfully.')
   }

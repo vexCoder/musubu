@@ -90,9 +90,7 @@ export class Downloader extends EventEmitter<EventMap> {
       if (!etag || etag === 'null') {
         throw new DownloaderError('ETag header is missing or invalid.')
       }
-      console.log(`ETag: ${etag}`)
-      etag = etag.replace(/"|\\"/g, '') // Clean up ETag quotes
-      console.log(`ETag: ${etag}`)
+      etag = etag.replace(/"|\\"/g, '')
 
       return {
         ok: response.ok,

@@ -9,9 +9,6 @@ const syncRouter = trpc.router({
 
     for await (const [data] of on(emitter, 'update')) {
       const progress = data as DataSyncRendererPayload
-      if (progress.event === 'start') {
-        console.log(progress)
-      }
       yield progress
     }
   }),
