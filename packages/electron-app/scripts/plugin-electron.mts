@@ -1,5 +1,6 @@
 import type { PluginBuild } from 'esbuild'
 import type { ResultPromise } from 'execa'
+import { dirname } from 'node:path'
 import { execa } from 'execa'
 import { pathExists } from 'fs-extra'
 import kill from 'tree-kill'
@@ -34,17 +35,15 @@ export default function ElectronPlugin({
             args.push('--enable-source-maps')
           }
 
-          if (await pathExists(pathToMain)) {
-            args.push(pathToMain)
-          }
-          else {
+          if (!await pathExists(pathToMain)) {
             throw new Error(`Main file not found at ${pathToMain}`)
           }
 
-          electronProc = execa(`electron`, args, {
+          electronProc = execa({
             stdio: 'inherit',
+            cwd: dirname(pathToMain),
             reject: false,
-          })
+          })`electron . ${args.join(' ')}`
         }
       })
     },

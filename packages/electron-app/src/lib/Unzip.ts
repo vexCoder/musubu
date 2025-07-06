@@ -92,7 +92,7 @@ export class Unzip extends EventEmitter<EventMap> {
       await new Promise<void>((resolve, reject) => {
         readStream.on('end', () => {
           filesExtracted++
-          // Ensure final progress for this file is reported
+
           this.reportProgress(
             entries.length,
             filesExtracted,

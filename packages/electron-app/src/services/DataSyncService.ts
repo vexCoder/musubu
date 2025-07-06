@@ -7,11 +7,15 @@ import { Downloader } from '@lib/Downloader'
 import { Paths } from '@lib/paths'
 import { Unzip } from '@lib/Unzip'
 import { streamParseXml } from '@lib/XmlParser'
-import { exists, unlink } from 'fs-extra'
+import { CronJob } from 'cron'
+import dayjs from 'dayjs'
+import { unlink } from 'fs-extra'
 import _ from 'lodash'
+import { Settings } from '@/core/settings'
 import { DbSaver } from '@/lib/DbSaver'
 
 enum DataSyncType {
+  checkForUpdates = 'checkForUpdates',
   download = 'download',
   unzip = 'unzip',
   parseXml = 'parseXml',
@@ -27,44 +31,47 @@ enum DataSyncEventType {
 interface DataSyncEventPayload {
   type: DataSyncType
   event: DataSyncEventType
-  payload: DataSyncProgress | Error | null | undefined | void
+  payload: DownloadProgress | UnzipProgress | XmlProgress | Error | null | undefined | void
 }
 
-export type DataSyncProgress = DownloadProgress | UnzipProgress | XmlProgress
-
-interface XmlProgressEventPayload {
-  type: 'parseXml'
-  event: 'progress'
-  payload: XmlProgress
+interface StartPayload {
+  isFirstRun: boolean
+  isUpdateAvailable: boolean
 }
 
-interface DownloadProgressEventPayload {
+export type DataSyncRendererPayload = {
+  type: 'checkForUpdates'
+  event: 'start'
+  payload: StartPayload
+} | {
+  type: 'checkForUpdates'
+  event: 'finish'
+  payload: {
+    error?: Error
+  }
+} | {
   type: 'download'
   event: 'progress'
   payload: DownloadProgress
-}
-
-interface UnzipProgressEventPayload {
+} | {
   type: 'unzip'
   event: 'progress'
   payload: UnzipProgress
-}
-
-interface SaveToDbProgressEventPayload {
+} | {
+  type: 'parseXml'
+  event: 'progress'
+  payload: XmlProgress
+} | {
   type: 'saveToDb'
   event: 'progress'
   payload: {
+    type: 'Append' | 'Save'
     progress: number
-    savedCount: number
-    totalPending: number
-    type: 'Save' | 'Append'
   }
 }
 
-export type DataSyncProgressEventPayload = XmlProgressEventPayload | DownloadProgressEventPayload | UnzipProgressEventPayload | SaveToDbProgressEventPayload
-
 interface DataSyncEventMap {
-  progress: [DataSyncProgressEventPayload]
+  update: [DataSyncRendererPayload]
 }
 
 interface EmitterItem {
@@ -127,18 +134,23 @@ async function* chainEmitters(...emitters: EmitterItem[]): AsyncGenerator<DataSy
 
 export class DataSyncService extends EventEmitter<DataSyncEventMap> {
   private static instance: DataSyncService | null = null
-  private downloadUrl = 'https://gamesdb.launchbox-app.com/Metadata.zip'
-  private downloadDestination = resolve(Paths.userData, 'Metadata.zip')
-  private unzipDestination = resolve(Paths.userData, 'Metadata')
-  private xmlPath = resolve(this.unzipDestination, 'Metadata.xml')
-  // private xmlPath = 'J:\\Projects\\ts\\musubu\\.test\\xml-schema\\xml\\Sample.xml'
+  private static isRunning = false
+  private readonly downloader: Downloader
+  private readonly unzipper: Unzip
+  private readonly saver: DbSaver
 
   constructor(
-    private downloaderFactory: (url: string, destination: string) => Downloader = (url, dest) => new Downloader(url, dest),
-    private unzipperFactory: (zipPath: string, outputPath: string) => Unzip = (zipPath, outPath) => new Unzip(zipPath, outPath),
-    private dbSaver = new DbSaver(),
+    private downloadUrl: string,
+    private downloadDestination: string,
+    private unzipDestination: string,
+    private xmlPath: string,
+    private readonly settings = Settings,
   ) {
     super()
+
+    this.downloader = new Downloader(this.downloadUrl, this.downloadDestination)
+    this.unzipper = new Unzip(this.downloadDestination, this.unzipDestination)
+    this.saver = new DbSaver()
   }
 
   public static getInstance(): DataSyncService {
@@ -148,27 +160,23 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     return DataSyncService.instance
   }
 
-  private getDownloaderEmitterItem(url: string, destination: string): EmitterItem {
-    const downloader = this.downloaderFactory(url, destination)
-
+  private getDownloaderEmitterItem(skipResume?: boolean): EmitterItem {
     return {
-      emitter: downloader,
+      emitter: this.downloader,
       type: DataSyncType.download,
-      start: downloader.startDownload.bind(downloader),
+      start: this.downloader.startDownload.bind(this.downloader, skipResume),
     }
   }
 
-  private getUnzipEmitterItem(zipPath: string, outputPath: string): EmitterItem {
-    const unzip = this.unzipperFactory(zipPath, outputPath)
-
+  private getUnzipEmitterItem(): EmitterItem {
     return {
-      emitter: unzip,
+      emitter: this.unzipper,
       type: DataSyncType.unzip,
-      start: unzip.extract.bind(unzip),
+      start: this.unzipper.extract.bind(this.unzipper),
     }
   }
 
-  private getXmlParserEmitterItem(xmlPath: string): EmitterItem {
+  private getXmlParserEmitterItem(): EmitterItem {
     const emitter = new EventEmitter<{
       progress: [XmlProgress]
       error: [Error]
@@ -177,7 +185,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
     const start = async () => {
       const iterator = streamParseXml({
-        filePath: xmlPath,
+        filePath: this.xmlPath,
         recordTags: ['Game', 'Platform', 'PlatformAlternateName', 'GameAlternateName', 'GameImage'],
         onError(error) {
           emitter.emit('error', error)
@@ -188,14 +196,14 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
               console.warn(`Skipping ${data.type} with missing Name field:`, data)
               return false
             }
-            
+
             return `${data.Name}`.trim() !== ''
           }
 
           return true
         },
         // eslint-disable-next-line ts/no-explicit-any
-        onData: async ({ type, ...rest }: any) => this.dbSaver.addData(type, rest),
+        onData: async ({ type, ...rest }: any) => this.saver.addData(type, rest),
       })
 
       for await (const event of iterator) {
@@ -213,11 +221,11 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
   private getSaveToDbEmitterItem(): EmitterItem {
     const start = async () => {
-      this.dbSaver.resumeQueue()
+      this.saver.resumeQueue()
     }
 
     return {
-      emitter: this.dbSaver,
+      emitter: this.saver,
       type: DataSyncType.saveToDb,
       start,
     }
@@ -225,50 +233,156 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
   public static initialize() {
     if (!DataSyncService.instance) {
-      DataSyncService.instance = new DataSyncService()
+      const downloadUrl = 'https://gamesdb.launchbox-app.com/Metadata.zip'
+      const downloadDestination = resolve(Paths.userData, 'Metadata.zip')
+      const unzipDestination = resolve(Paths.userData, 'Metadata')
+      const xmlPath = resolve(unzipDestination, 'Metadata.xml')
+      // const xmlPath = 'J:\\Projects\\ts\\musubu\\.test\\xml-schema\\xml\\Sample.xml'
+
+      DataSyncService.instance = new DataSyncService(
+        downloadUrl,
+        downloadDestination,
+        unzipDestination,
+        xmlPath,
+      )
+
+      const execute = DataSyncService.instance.run.bind(DataSyncService.instance)
+
+      const job = CronJob.from({
+        cronTime: '00 00 * * * *',
+        onTick: async () => {
+          try {
+            console.log('Executing sync job...')
+            const nextInvocation = job.nextDate().toUnixInteger()
+            console.log(`Next invocation of sync job: ${dayjs.unix(nextInvocation).format('YYYY-MM-DD HH:mm:ss')}`)
+            await execute()
+          }
+          catch (error) {
+            console.error('Error during scheduled data sync:', error)
+          }
+        },
+        start: true,
+        timeZone: 'UTC',
+      })
     }
 
     return DataSyncService.instance
   }
 
-  public async run() {
-    if (await exists(resolve(Paths.userData, 'Metadata.zip'))) {
-      await unlink(resolve(Paths.userData, 'Metadata.zip'))
+  public async checkForUpdates() {
+    const head = await this.downloader.fetchHead()
+
+    if (!head.ok || head.status !== 200 || !head.etag || !head.contentLength || head.contentLength <= 0) {
+      throw new Error(`Failed to check for updates: ${head.status} ${head.statusText}`)
     }
 
-    const downloader = this.getDownloaderEmitterItem(this.downloadUrl, this.downloadDestination)
-    const unzipper = this.getUnzipEmitterItem(
-      this.downloadDestination,
-      this.unzipDestination,
-    )
-    const xmlParser = this.getXmlParserEmitterItem(this.xmlPath)
-    const dbSaver = this.getSaveToDbEmitterItem()
+    const currentEtag = this.settings.get('gamesDbVersion')
 
-    const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
-    // const chain = chainEmitters(xmlParser, dbSaver)
-
-    const throttled = _.throttle((event: DataSyncEventPayload) => {
-      this.emit('progress', {
-        event: DataSyncEventType.progress,
-        type: event.type,
-        payload: event.payload,
-      } as DataSyncProgressEventPayload)
-    }, 1250)
-
-    for await (const event of chain) {
-      if (event.type === DataSyncType.unzip && event.event === DataSyncEventType.finish) {
-        await unlink(this.downloadDestination)
+    if (currentEtag === head.etag) {
+      console.log('No updates available. Current version is up-to-date.')
+      return {
+        isUpdateAvailable: false,
+        currentVersion: currentEtag,
       }
+    }
 
-      if (event.event === DataSyncEventType.progress) {
-        throttled(event)
-      }
-      if (event.event === DataSyncEventType.error) {
-        console.error('Data sync error:', event.payload)
+    console.log('Updates available. Current version:', currentEtag, 'New version:', head.etag)
+    return {
+      isUpdateAvailable: true,
+      currentVersion: currentEtag,
+      newVersion: head.etag,
+    }
+  }
+
+  public async run() {
+    if (DataSyncService.isRunning) {
+      console.warn('Data sync is already running. Skipping this run.')
+      return
+    }
+
+    DataSyncService.isRunning = true
+
+    try {
+      const {
+        isUpdateAvailable,
+        newVersion,
+      } = await this.checkForUpdates()
+      const isFirstRun = !this.settings.get('gamesDbVersion')
+
+      if (!isUpdateAvailable) {
+        console.log('No updates available. Skipping data sync.')
         return
       }
-    }
 
-    console.log('Data sync completed successfully.')
+      this.emit('update', {
+        event: 'start',
+        type: 'checkForUpdates',
+        payload: {
+          isFirstRun,
+          isUpdateAvailable,
+        },
+      } as DataSyncRendererPayload)
+
+      const downloader = this.getDownloaderEmitterItem(isUpdateAvailable)
+      const unzipper = this.getUnzipEmitterItem()
+      const xmlParser = this.getXmlParserEmitterItem()
+      const dbSaver = this.getSaveToDbEmitterItem()
+
+      const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
+      // const chain = chainEmitters(xmlParser, dbSaver)
+
+      const emitUpdate = (event: DataSyncEventPayload) => {
+        this.emit('update', {
+          event: 'progress',
+          type: event.type,
+          payload: event.payload,
+        } as DataSyncRendererPayload)
+      }
+
+      const throttled = _.throttle(emitUpdate, 1250)
+
+      for await (const event of chain) {
+        if (event.type === DataSyncType.unzip && event.event === DataSyncEventType.finish) {
+          await unlink(this.downloadDestination)
+        }
+
+        if (event.event === DataSyncEventType.progress) {
+          throttled(event)
+        }
+
+        if (
+          event.event === DataSyncEventType.progress
+          && !!event.payload
+          && 'progress' in event.payload
+          && event.payload.progress >= 100
+        ) {
+          emitUpdate(event)
+        }
+
+        if (event.event === DataSyncEventType.error) {
+          throw event.payload
+        }
+      }
+
+      this.settings.set('gamesDbVersion', newVersion)
+      this.emit('update', {
+        event: 'finish',
+        type: 'checkForUpdates',
+        payload: {},
+      } as DataSyncRendererPayload)
+      console.log('Data sync completed successfully.')
+    }
+    catch (error) {
+    // Handle any unhandled errors that might occur outside the chained emitters' error handling
+      console.error('Unhandled data sync error:', error)
+      this.emit('update', {
+        event: 'finish',
+        type: 'checkForUpdates',
+        payload: { error: error as Error },
+      } as DataSyncRendererPayload)
+    }
+    finally {
+      DataSyncService.isRunning = false
+    }
   }
 }

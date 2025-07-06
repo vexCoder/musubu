@@ -1,5 +1,5 @@
-import { app } from 'electron'
 import { WindowManager } from '@window/WindowManager'
+import { app } from 'electron'
 
 export default function initializeLifecycle() {
   app.on('activate', () => {

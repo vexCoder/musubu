@@ -6,7 +6,9 @@ interface SettingsSchema {
   window?: {
     width: number
     height: number
-  }
+  };
+
+  gamesDbVersion?: string;
 }
 
 export type SettingsDb = Low<SettingsSchema>

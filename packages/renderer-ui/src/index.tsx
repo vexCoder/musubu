@@ -6,8 +6,13 @@ import { routeTree } from '@/routes.gen'
 
 import './index.css'
 
-// Create a new router instance
 const router = createRouter({ routeTree })
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}
 
 const rootElement = document.getElementById('root')!
 if (!rootElement.innerHTML) {

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
@@ -9,7 +9,7 @@ export default defineConfig({
     react(), 
     tsconfigPaths(),
     tailwindcss(),
-    TanStackRouterVite({ 
+    tanstackRouter({ 
       target: 'react', 
       autoCodeSplitting: true,
       routesDirectory: './src/pages',

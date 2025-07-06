@@ -7,7 +7,7 @@ const dialect = new SqliteDialect({
   database: new SQLite(Paths.gamesDb),
 })
 
-export const db = new Kysely<Database>({
+export const gamesDb = new Kysely<Database>({
   dialect,
   log: (ev) => {
     if (process.env.NODE_ENV === 'development') {
@@ -118,14 +118,14 @@ export type GameImageUpdate = Updateable<GameImagesTable>
 
 export async function initializeDatabase() {
   if (process.env.NODE_ENV === 'development') {
-    await db.schema.dropTable('Games').ifExists().execute()
-    await db.schema.dropTable('Platforms').ifExists().execute()
-    await db.schema.dropTable('PlatformAlternateNames').ifExists().execute()
-    await db.schema.dropTable('GameAlternateNames').ifExists().execute()
-    await db.schema.dropTable('GameImages').ifExists().execute()
+    await gamesDb.schema.dropTable('Games').ifExists().execute()
+    await gamesDb.schema.dropTable('Platforms').ifExists().execute()
+    await gamesDb.schema.dropTable('PlatformAlternateNames').ifExists().execute()
+    await gamesDb.schema.dropTable('GameAlternateNames').ifExists().execute()
+    await gamesDb.schema.dropTable('GameImages').ifExists().execute()
   }
 
-  await db.schema
+  await gamesDb.schema
     .createTable('Games')
     .ifNotExists()
     .addColumn('DatabaseID', 'integer', col => col.primaryKey())
@@ -148,19 +148,19 @@ export async function initializeDatabase() {
     .addColumn('CreatedAt', sql`INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))`)
     .execute()
 
-  await db.schema.createIndex('idx_games_name')
+  await gamesDb.schema.createIndex('idx_games_name')
     .on('Games')
     .column('Name')
     .ifNotExists()
     .execute()
 
-  await db.schema.createIndex('idx_games_platform')
+  await gamesDb.schema.createIndex('idx_games_platform')
     .on('Games')
     .column('Platform')
     .ifNotExists()
     .execute()
 
-  await db.schema
+  await gamesDb.schema
     .createTable('Platforms')
     .ifNotExists()
     .addColumn('Name', 'text', col => col.primaryKey())
@@ -181,7 +181,7 @@ export async function initializeDatabase() {
     .addColumn('CreatedAt', sql`INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))`)
     .execute()
 
-  await db.schema
+  await gamesDb.schema
     .createTable('PlatformAlternateNames')
     .ifNotExists()
     .addColumn('Name', 'text', col => col.notNull())
@@ -190,7 +190,7 @@ export async function initializeDatabase() {
     .addPrimaryKeyConstraint('pk_platform_alternate_names', ['Name', 'Alternate'])
     .execute()
 
-  await db.schema
+  await gamesDb.schema
     .createTable('GameAlternateNames')
     .ifNotExists()
     .addColumn('DatabaseID', 'integer', col => col.notNull())
@@ -200,13 +200,13 @@ export async function initializeDatabase() {
     .addPrimaryKeyConstraint('pk_game_alternate_names', ['DatabaseID', 'Alternate'])
     .execute()
 
-  await db.schema.createIndex('idx_game_alternate_names_database_id')
+  await gamesDb.schema.createIndex('idx_game_alternate_names_database_id')
     .on('GameAlternateNames')
     .column('DatabaseID')
     .ifNotExists()
     .execute()
 
-  await db.schema
+  await gamesDb.schema
     .createTable('GameImages')
     .ifNotExists()
     .addColumn('DatabaseID', 'integer', col => col.notNull())
@@ -218,7 +218,7 @@ export async function initializeDatabase() {
     .addPrimaryKeyConstraint('pk_game_images', ['DatabaseID', 'FileName'])
     .execute()
 
-  await db.schema.createIndex('idx_game_images_database_id')
+  await gamesDb.schema.createIndex('idx_game_images_database_id')
     .on('GameImages')
     .column('DatabaseID')
     .ifNotExists()

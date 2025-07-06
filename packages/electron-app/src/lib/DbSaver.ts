@@ -1,8 +1,8 @@
-import type { NewGame, NewGameAlternateName, NewGameImage, NewPlatform, NewPlatformAlternateName } from '@/core/db'
+import type { NewGame, NewGameAlternateName, NewGameImage, NewPlatform, NewPlatformAlternateName } from '@core/gamesDb'
 import EventEmitter from 'node:events'
 import _ from 'lodash'
 import PQueue from 'p-queue'
-import { db } from '@/core/db'
+import { gamesDb } from '@core/gamesDb'
 
 // eslint-disable-next-line ts/no-explicit-any
 function mapXmlGameToNewGame(data: any): NewGame {
@@ -87,7 +87,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
   private dbWriteQueue: PQueue
   // eslint-disable-next-line ts/no-explicit-any
   private dataMap: Map<string, any[]> = new Map()
-  private dbInstance: typeof db = db
+  private dbInstance: typeof gamesDb = gamesDb
   private isAppend: boolean = false
   private isSaving: boolean = false
   private pendingStartCount: number = 0

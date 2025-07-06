@@ -3,7 +3,7 @@ import type { Buffer } from 'node:buffer'
 import type { Readable } from 'node:stream'
 import { EventEmitter } from 'node:stream'
 import fetch from 'electron-fetch'
-import { createWriteStream, stat, unlink } from 'fs-extra'
+import { createWriteStream, exists, stat, unlink } from 'fs-extra'
 
 class DownloaderError extends Error {
   constructor(message: string, public readonly cause?: Error) {
@@ -18,6 +18,16 @@ export interface DownloadProgress {
   totalBytes: number | null
 }
 
+interface DownloaderHeadResponse {
+  ok: boolean
+  status: number
+  statusText: string
+  etag: string | null
+  lastModified: string | null
+  contentType: string
+  contentLength: number
+}
+
 interface EventMap {
   error: [DownloaderError]
   progress: [DownloadProgress] // Progress percentage
@@ -28,6 +38,8 @@ export class Downloader extends EventEmitter<EventMap> {
   private downloadedBytes: number = 0
   private totalBytes: number | null = 0
   private isResuming: boolean = false
+  private isFinished: boolean = false
+  private skipResume: boolean = false
 
   constructor(private url: string, private destination: string) {
     super()
@@ -36,8 +48,14 @@ export class Downloader extends EventEmitter<EventMap> {
     }
   }
 
-  public async startDownload(): Promise<void> {
+  public async startDownload(skipResume?: boolean): Promise<void> {
     try {
+      this.skipResume = skipResume || false
+      this.downloadedBytes = 0
+      this.isResuming = false
+      this.totalBytes = 0
+      this.isFinished = false
+
       await this.prepareDownload()
       await this.executeDownload()
     }
@@ -52,16 +70,83 @@ export class Downloader extends EventEmitter<EventMap> {
     }
   }
 
-  private async prepareDownload() {
+  public async fetchHead(): Promise<DownloaderHeadResponse> {
     try {
-      const headResponse = await fetch(this.url, { method: 'HEAD' })
+      const response = await fetch(this.url, { method: 'HEAD' })
 
-      if (!headResponse.ok) {
-        throw new DownloaderError(`HTTP Error: ${headResponse.status} ${headResponse.statusText}`)
+      if (!response.ok) {
+        throw new DownloaderError(`HTTP Error: ${response.status} ${response.statusText}`)
       }
 
-      const contentLength = headResponse.headers.get('content-length')
-      this.totalBytes = contentLength ? Number(contentLength) : null
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.startsWith('application/')) {
+        throw new DownloaderError('Invalid content type for download.')
+      }
+
+      const contentLength = Number(response.headers.get('content-length'))
+      if (contentLength && Number.isNaN(contentLength)) {
+        throw new DownloaderError('Content length is not a valid number.')
+      }
+
+      let etag = response.headers.get('etag') || null
+      if (!etag || etag === 'null') {
+        throw new DownloaderError('ETag header is missing or invalid.')
+      }
+      etag = etag.replace(/"|\\"/g, '')
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        etag,
+        lastModified: response.headers.get('last-modified') || null,
+        contentType,
+        contentLength,
+      }
+    }
+    catch (err) {
+      const error = err as Error
+      let status = 500
+      let statusText = 'Network error'
+
+      if ('code' in error) {
+        status = error.code === 'ENOTFOUND' ? 404 : 500
+        statusText = 'Resource not found'
+      }
+
+      if (error instanceof DownloaderError) {
+        status = 400
+        statusText = error.message
+      }
+
+      return {
+        ok: false,
+        status,
+        statusText,
+        etag: null,
+        lastModified: null,
+        contentType: 'application/octet-stream',
+        contentLength: 0,
+      }
+    }
+  }
+
+  private async prepareDownload() {
+    try {
+      const head = await this.fetchHead()
+
+      if (!head.ok) {
+        throw new DownloaderError(`HTTP Error: ${head.status} ${head.statusText}`)
+      }
+
+      if (await exists(this.destination) && this.skipResume) {
+        console.log('Destination file already exists. Skipping resume and starting fresh download.')
+        await this.cleanupPartialFile()
+        this.downloadedBytes = 0
+        this.isResuming = false
+      }
+
+      this.totalBytes = head.contentLength
 
       // Check if we can resume a partial download
       await this.checkResumability()
@@ -83,7 +168,9 @@ export class Downloader extends EventEmitter<EventMap> {
       if (stats.size > 0 && this.totalBytes) {
         if (stats.size === this.totalBytes) {
           console.log('\nFile is already fully downloaded.')
-          throw new DownloaderError('File is already fully downloaded.')
+          this.isFinished = true
+          this.downloadedBytes = stats.size
+          this.totalBytes = stats.size
         }
         if (stats.size < this.totalBytes) {
           this.downloadedBytes = stats.size
@@ -96,12 +183,23 @@ export class Downloader extends EventEmitter<EventMap> {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error // Rethrow unexpected errors
       }
-      // File doesn't exist, which is fine. Start from scratch.
     }
   }
 
   private async executeDownload() {
-    const headers: HeadersInit = this.isResuming
+    console.log(`Starting download from ${this.url} to ${this.destination}`, { isFinished: this.isFinished, isResuming: this.isResuming })
+    if (this.isFinished) {
+      console.log('Download is already complete. No action taken.')
+      this.emit('progress', {
+        progress: 100,
+        downloadedBytes: this.downloadedBytes,
+        totalBytes: this.totalBytes,
+      })
+      this.emit('finish')
+      return
+    }
+
+    const headers: HeadersInit = this.isResuming && !this.skipResume
       ? { Range: `bytes=${this.downloadedBytes}-` }
       : {}
 

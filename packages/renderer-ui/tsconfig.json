@@ -4,11 +4,11 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@/": ["src/"],
-      "@/pages/*": ["src/pages/*"],
-      "@/pages/": ["src/pages/"],
-      "@/lib/*": ["src/lib/*"],
-      "@/lib/": ["src/lib/"],
+      "@pages/*": ["src/pages/*"],
+      "@lib/*": ["src/lib/*"],
+      "@components/*": ["src/components/*"],
+      "@context/*": ["src/context/*"],
+      "@hooks/*": ["src/hooks/*"],
     },
     "types": ["node", "vite/client"]
   },

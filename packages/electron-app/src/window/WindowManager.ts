@@ -1,3 +1,4 @@
+import waitForUrl from '@lib/waitForUrl'
 import createMainWindow from '@window/createMainWindow'
 import createOverlayWindow from '@window/createOverlayWindow'
 
@@ -44,5 +45,17 @@ export class WindowManager {
     this.windows.push(this.overlayWindow)
 
     return this.overlayWindow
+  }
+
+  public static async waitForWindow(window: Electron.BrowserWindow): Promise<void> {
+    if (!window) {
+      throw new Error('Window is not defined')
+    }
+
+    if (window.isDestroyed()) {
+      throw new Error('Window is destroyed')
+    }
+
+    await waitForUrl(process.env.RENDERER_URL)
   }
 }

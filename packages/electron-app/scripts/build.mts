@@ -66,7 +66,7 @@ async function build() {
       outbase: 'src',
       bundle: true,
       platform: 'node',
-      sourcemap: true,
+      sourcemap: 'inline',
 
       external: [
         '@musubu/tracker',
