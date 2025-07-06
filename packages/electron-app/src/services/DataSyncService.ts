@@ -44,6 +44,12 @@ export type DataSyncRendererPayload = {
   event: 'start'
   payload: StartPayload
 } | {
+  type: 'checkForUpdates'
+  event: 'finish'
+  payload: {
+    error?: Error
+  }
+} | {
   type: 'download'
   event: 'progress'
   payload: DownloadProgress
@@ -305,14 +311,6 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     if (!isUpdateAvailable) {
       console.log('No updates available. Skipping data sync.')
       DataSyncService.isRunning = false
-      this.emit('update', {
-        event: 'start',
-        type: 'checkForUpdates',
-        payload: {
-          isFirstRun,
-          isUpdateAvailable: false,
-        },
-      })
       return
     }
 
@@ -321,7 +319,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       type: 'checkForUpdates',
       payload: {
         isFirstRun,
-        isUpdateAvailable: true,
+        isUpdateAvailable,
       },
     } as DataSyncRendererPayload)
 
@@ -363,12 +361,22 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
       if (event.event === DataSyncEventType.error) {
         console.error('Data sync error:', event.payload)
+        this.emit('update', {
+          event: 'finish',
+          type: 'checkForUpdates',
+          payload: { error: event.payload },
+        } as DataSyncRendererPayload)
         return
       }
     }
 
     this.settings.set('gamesDbVersion', newVersion)
     DataSyncService.isRunning = false
+    this.emit('update', {
+      event: 'finish',
+      type: 'checkForUpdates',
+      payload: {},
+    } as DataSyncRendererPayload)
     console.log('Data sync completed successfully.')
   }
 }

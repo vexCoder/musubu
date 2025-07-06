@@ -25,6 +25,7 @@ const DATASYNC_STEP_WEIGHTS: Record<string, number> = {
 export default function DataSyncProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [step, setStep] = useState<string>()
+  const [toastId, setToastId] = useState<string | number | null>(null)
   const [stepProgress, setStepProgress] = useState<Record<string, number>>({})
 
   const handleStart = (data: ProcedureOutput.OnDataSync) => {
@@ -50,9 +51,38 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
       return
     }
 
-    toast.custom(() => (
+    const id = toast.custom(() => (
       <DataSync />
     ), { duration: Infinity })
+    setToastId(id)
+  }
+
+  const handleFinish = (data: ProcedureOutput.OnDataSync) => {
+    if (data.event !== 'finish') {
+      console.warn('Data sync event is not finish:', data.event)
+      return
+    }
+
+    console.log('Data sync finished:', data)
+
+    if (toastId) {
+      toast.dismiss(toastId)
+      toast.success('Data sync completed successfully!')
+    }
+
+    if (data.payload?.error) {
+      console.error('Data sync error:', data.payload.error)
+      toast.error(`Data sync failed: ${data.payload.error.message || 'Unknown error'}`)
+    }
+
+    if (router.state.location.pathname === '/welcome') {
+      router.navigate({
+        to: '/',
+      })
+    }
+
+    setStep('')
+    setStepProgress({})
   }
 
   const handleProgress = (data: ProcedureOutput.OnDataSync) => {
@@ -92,9 +122,23 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
       else if (data.event === 'progress') {
         handleProgress(data)
       }
+      else if (data.event === 'finish') {
+        handleFinish(data)
+      }
     },
     onError(err) {
       console.error('Error during data sync:', err)
+      if (toastId) {
+        toast.dismiss(toastId)
+      }
+
+      toast.error('Data sync failed due to a connection error.')
+
+      if (router.state.location.pathname === '/welcome') {
+        router.navigate({
+          to: '/',
+        })
+      }
     },
   })
 
