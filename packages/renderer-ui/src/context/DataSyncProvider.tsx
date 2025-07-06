@@ -2,7 +2,7 @@ import type { ProcedureOutput } from '@/lib/types'
 import DataSync from '@components/common/DataSync'
 import { DataSyncContext } from '@context/DataSyncContext'
 import { trpc } from '@lib/trpc'
-import { useNavigate, useRouter } from '@tanstack/react-router'
+import { useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -26,13 +26,6 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
   const router = useRouter()
   const [step, setStep] = useState<string>()
   const [stepProgress, setStepProgress] = useState<Record<string, number>>({})
-
-  console.log(`Weights: ${
-    Object.entries(DATASYNC_STEP_WEIGHTS)
-      .reduce((acc, [_key, value]) => {
-        return acc + value
-      }, 0)
-  }`)
 
   const handleStart = (data: ProcedureOutput.OnDataSync) => {
     if (data.event !== 'start') {
@@ -113,8 +106,6 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
       const stepWeight = DATASYNC_STEP_WEIGHTS[stepId] || 0
 
       progress += (stepCurrentCompletion * stepWeight) * 100
-
-      console.log({ progress, stepProgress })
     }
 
     return ({

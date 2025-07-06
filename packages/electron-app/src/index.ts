@@ -21,8 +21,8 @@ app.whenReady().then(async () => {
 
   const dataSync = DataSyncService.initialize()
 
-  WindowManager.createMainWindow()
-  await WindowManager.waitForWindow(WindowManager.getMainWindow()!)
+  const mainWindow = WindowManager.createMainWindow()
+  await WindowManager.waitForWindow(mainWindow)
 
   dataSync.run()
 })
