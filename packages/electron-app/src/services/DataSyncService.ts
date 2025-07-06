@@ -154,11 +154,11 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     return DataSyncService.instance
   }
 
-  private getDownloaderEmitterItem(): EmitterItem {
+  private getDownloaderEmitterItem(skipResume?: boolean): EmitterItem {
     return {
       emitter: this.downloader,
       type: DataSyncType.download,
-      start: this.downloader.startDownload.bind(this.downloader),
+      start: this.downloader.startDownload.bind(this.downloader, skipResume),
     }
   }
 
@@ -245,10 +245,15 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       const job = CronJob.from({
         cronTime: '00 00 * * * *',
         onTick: async () => {
-          console.log('Executing sync job...')
-          const nextInvocation = job.nextDate().toUnixInteger()
-          console.log(`Next invocation of sync job: ${dayjs.unix(nextInvocation).format('YYYY-MM-DD HH:mm:ss')}`)
-          await execute()
+          try {
+            console.log('Executing sync job...')
+            const nextInvocation = job.nextDate().toUnixInteger()
+            console.log(`Next invocation of sync job: ${dayjs.unix(nextInvocation).format('YYYY-MM-DD HH:mm:ss')}`)
+            await execute()
+          }
+          catch (error) {
+            console.error('Error during scheduled data sync:', error)
+          }
         },
         start: true,
         timeZone: 'UTC',
@@ -311,7 +316,6 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       return
     }
 
-    console.log('Starting data sync...')
     this.emit('update', {
       event: 'start',
       type: 'checkForUpdates',
@@ -321,7 +325,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       },
     } as DataSyncRendererPayload)
 
-    const downloader = this.getDownloaderEmitterItem()
+    const downloader = this.getDownloaderEmitterItem(isUpdateAvailable)
     const unzipper = this.getUnzipEmitterItem()
     const xmlParser = this.getXmlParserEmitterItem()
     const dbSaver = this.getSaveToDbEmitterItem()
@@ -329,13 +333,15 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
     // const chain = chainEmitters(xmlParser, dbSaver)
 
-    const throttled = _.throttle((event: DataSyncEventPayload) => {
+    const emitUpdate = (event: DataSyncEventPayload) => {
       this.emit('update', {
         event: 'progress',
         type: event.type,
         payload: event.payload,
       } as DataSyncRendererPayload)
-    }, 1250)
+    }
+
+    const throttled = _.throttle(emitUpdate, 1250)
 
     for await (const event of chain) {
       if (event.type === DataSyncType.unzip && event.event === DataSyncEventType.finish) {
@@ -344,6 +350,15 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
       if (event.event === DataSyncEventType.progress) {
         throttled(event)
+      }
+
+      if (
+        event.event === DataSyncEventType.progress
+        && !!event.payload
+        && 'progress' in event.payload
+        && event.payload.progress >= 100
+      ) {
+        emitUpdate(event)
       }
 
       if (event.event === DataSyncEventType.error) {

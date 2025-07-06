@@ -3,7 +3,7 @@ import type { Buffer } from 'node:buffer'
 import type { Readable } from 'node:stream'
 import { EventEmitter } from 'node:stream'
 import fetch from 'electron-fetch'
-import { createWriteStream, stat, unlink } from 'fs-extra'
+import { createWriteStream, exists, stat, unlink } from 'fs-extra'
 
 class DownloaderError extends Error {
   constructor(message: string, public readonly cause?: Error) {
@@ -39,6 +39,7 @@ export class Downloader extends EventEmitter<EventMap> {
   private totalBytes: number | null = 0
   private isResuming: boolean = false
   private isFinished: boolean = false
+  private skipResume: boolean = false
 
   constructor(private url: string, private destination: string) {
     super()
@@ -47,8 +48,9 @@ export class Downloader extends EventEmitter<EventMap> {
     }
   }
 
-  public async startDownload(): Promise<void> {
+  public async startDownload(skipResume?: boolean): Promise<void> {
     try {
+      this.skipResume = skipResume || false
       this.downloadedBytes = 0
       this.isResuming = false
       this.totalBytes = 0
@@ -102,11 +104,25 @@ export class Downloader extends EventEmitter<EventMap> {
         contentLength,
       }
     }
-    catch (error) {
+    catch (err) {
+      const error = err as Error
+      let status = 500
+      let statusText = 'Network error'
+
+      if ('code' in error) {
+        status = error.code === 'ENOTFOUND' ? 404 : 500
+        statusText = 'Resource not found'
+      }
+
+      if (error instanceof DownloaderError) {
+        status = 400
+        statusText = error.message
+      }
+
       return {
         ok: false,
-        status: (error as NodeJS.ErrnoException).code === 'ENOTFOUND' ? 404 : 500,
-        statusText: (error as NodeJS.ErrnoException).message || 'Network error',
+        status,
+        statusText,
         etag: null,
         lastModified: null,
         contentType: 'application/octet-stream',
@@ -121,6 +137,13 @@ export class Downloader extends EventEmitter<EventMap> {
 
       if (!head.ok) {
         throw new DownloaderError(`HTTP Error: ${head.status} ${head.statusText}`)
+      }
+
+      if (await exists(this.destination) && this.skipResume) {
+        console.log('Destination file already exists. Skipping resume and starting fresh download.')
+        await this.cleanupPartialFile()
+        this.downloadedBytes = 0
+        this.isResuming = false
       }
 
       this.totalBytes = head.contentLength
@@ -165,11 +188,16 @@ export class Downloader extends EventEmitter<EventMap> {
     console.log(`Starting download from ${this.url} to ${this.destination}`, { isFinished: this.isFinished, isResuming: this.isResuming })
     if (this.isFinished) {
       console.log('Download is already complete. No action taken.')
+      this.emit('progress', {
+        progress: 100,
+        downloadedBytes: 0,
+        totalBytes: 0,
+      })
       this.emit('finish')
       return
     }
 
-    const headers: HeadersInit = this.isResuming
+    const headers: HeadersInit = this.isResuming && !this.skipResume
       ? { Range: `bytes=${this.downloadedBytes}-` }
       : {}
 

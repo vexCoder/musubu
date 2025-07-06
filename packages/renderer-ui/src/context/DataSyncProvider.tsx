@@ -2,7 +2,7 @@ import type { ProcedureOutput } from '@/lib/types'
 import DataSync from '@components/common/DataSync'
 import { DataSyncContext } from '@context/DataSyncContext'
 import { trpc } from '@lib/trpc'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -14,10 +14,25 @@ const DATASYNC_STEPS = [
   'saveToDb:Save',
 ]
 
+const DATASYNC_STEP_WEIGHTS: Record<string, number> = {
+  'download': 0.2,
+  'unzip': 0.05,
+  'parseXml': 0.25,
+  'saveToDb:Append': 0.3,
+  'saveToDb:Save': 0.2,
+}
+
 export default function DataSyncProvider({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [step, setStep] = useState<string>()
-  const [progress, setProgress] = useState(0)
+  const [stepProgress, setStepProgress] = useState<Record<string, number>>({})
+
+  console.log(`Weights: ${
+    Object.entries(DATASYNC_STEP_WEIGHTS)
+      .reduce((acc, [_key, value]) => {
+        return acc + value
+      }, 0)
+  }`)
 
   const handleStart = (data: ProcedureOutput.OnDataSync) => {
     if (data.event !== 'start') {
@@ -27,8 +42,16 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
 
     console.log('Data sync started:', data)
     if (data.payload.isFirstRun) {
-      navigate({
+      router.navigate({
         to: '/welcome',
+      })
+
+      return
+    }
+
+    if (router.state.location.pathname === '/welcome') {
+      router.navigate({
+        to: '/',
       })
 
       return
@@ -51,17 +74,26 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
     }
 
     setStep(dataType)
-
-    let progress = DATASYNC_STEPS.indexOf(dataType) / DATASYNC_STEPS.length
-
-    progress = progress + ((data.payload?.progress || 0) / 100 / DATASYNC_STEPS.length)
-
-    setProgress(progress * 100)
+    setStepProgress((prev) => {
+      const clampedProgressPercent = Math.max(0, Math.min(100, data.payload?.progress || 0))
+      return ({
+        ...prev,
+        [dataType]: clampedProgressPercent / 100,
+      })
+    })
   }
 
   trpc.sync.onDatasync.useSubscription(undefined, {
     onData(data) {
       if (data.event === 'start') {
+        setStepProgress({
+          'download': 0,
+          'unzip': 0,
+          'parseXml': 0,
+          'saveToDb:Append': 0,
+          'saveToDb:Save': 0,
+        })
+
         handleStart(data)
       }
       else if (data.event === 'progress') {
@@ -73,10 +105,23 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
     },
   })
 
-  const contextValue = useMemo(() => ({
-    step,
-    progress,
-  }), [step, progress])
+  const contextValue = useMemo(() => {
+    let progress = 0
+
+    for (const stepId of DATASYNC_STEPS) {
+      const stepCurrentCompletion = stepProgress[stepId] || 0
+      const stepWeight = DATASYNC_STEP_WEIGHTS[stepId] || 0
+
+      progress += (stepCurrentCompletion * stepWeight) * 100
+
+      console.log({ progress, stepProgress })
+    }
+
+    return ({
+      step,
+      progress,
+    })
+  }, [step, stepProgress])
 
   return (
     <DataSyncContext
