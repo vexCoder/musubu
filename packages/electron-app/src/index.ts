@@ -1,3 +1,12 @@
+/* eslint-disable import/first */
+if (process.argv.includes('--enable-source-maps')) {
+  // eslint-disable-next-line ts/no-require-imports
+  require('source-map-support').install({
+    environment: 'node',
+    handleUncaughtExceptions: true,
+  })
+}
+
 import { initializeDatabase } from '@core/gamesDb'
 import initializeIpc from '@core/initializeIpc'
 import initializeLifecycle from '@core/initializeLifecycle'
