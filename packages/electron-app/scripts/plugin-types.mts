@@ -26,6 +26,7 @@ export default function TypesPlugin({
         }
         catch (error) {
           console.error('Unexpected error:', error)
+          throw new Error(`TypeScript compilation failed: ${error instanceof Error ? error.message : String(error)}`)
         }
       })
     },

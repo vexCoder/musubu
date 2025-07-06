@@ -169,6 +169,8 @@ export class Downloader extends EventEmitter<EventMap> {
         if (stats.size === this.totalBytes) {
           console.log('\nFile is already fully downloaded.')
           this.isFinished = true
+          this.downloadedBytes = stats.size
+          this.totalBytes = stats.size
         }
         if (stats.size < this.totalBytes) {
           this.downloadedBytes = stats.size
@@ -190,8 +192,8 @@ export class Downloader extends EventEmitter<EventMap> {
       console.log('Download is already complete. No action taken.')
       this.emit('progress', {
         progress: 100,
-        downloadedBytes: 0,
-        totalBytes: 0,
+        downloadedBytes: this.downloadedBytes,
+        totalBytes: this.totalBytes,
       })
       this.emit('finish')
       return

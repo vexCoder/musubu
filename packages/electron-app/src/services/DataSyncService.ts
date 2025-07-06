@@ -311,7 +311,6 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
       if (!isUpdateAvailable) {
         console.log('No updates available. Skipping data sync.')
-        DataSyncService.isRunning = false
         return
       }
 
