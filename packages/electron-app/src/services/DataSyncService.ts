@@ -302,81 +302,88 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
     DataSyncService.isRunning = true
 
-    const {
-      isUpdateAvailable,
-      newVersion,
-    } = await this.checkForUpdates()
-    const isFirstRun = !this.settings.get('gamesDbVersion')
-
-    if (!isUpdateAvailable) {
-      console.log('No updates available. Skipping data sync.')
-      DataSyncService.isRunning = false
-      return
-    }
-
-    this.emit('update', {
-      event: 'start',
-      type: 'checkForUpdates',
-      payload: {
-        isFirstRun,
+    try {
+      const {
         isUpdateAvailable,
-      },
-    } as DataSyncRendererPayload)
+        newVersion,
+      } = await this.checkForUpdates()
+      const isFirstRun = !this.settings.get('gamesDbVersion')
 
-    const downloader = this.getDownloaderEmitterItem(isUpdateAvailable)
-    const unzipper = this.getUnzipEmitterItem()
-    const xmlParser = this.getXmlParserEmitterItem()
-    const dbSaver = this.getSaveToDbEmitterItem()
-
-    const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
-    // const chain = chainEmitters(xmlParser, dbSaver)
-
-    const emitUpdate = (event: DataSyncEventPayload) => {
-      this.emit('update', {
-        event: 'progress',
-        type: event.type,
-        payload: event.payload,
-      } as DataSyncRendererPayload)
-    }
-
-    const throttled = _.throttle(emitUpdate, 1250)
-
-    for await (const event of chain) {
-      if (event.type === DataSyncType.unzip && event.event === DataSyncEventType.finish) {
-        await unlink(this.downloadDestination)
-      }
-
-      if (event.event === DataSyncEventType.progress) {
-        throttled(event)
-      }
-
-      if (
-        event.event === DataSyncEventType.progress
-        && !!event.payload
-        && 'progress' in event.payload
-        && event.payload.progress >= 100
-      ) {
-        emitUpdate(event)
-      }
-
-      if (event.event === DataSyncEventType.error) {
-        console.error('Data sync error:', event.payload)
-        this.emit('update', {
-          event: 'finish',
-          type: 'checkForUpdates',
-          payload: { error: event.payload },
-        } as DataSyncRendererPayload)
+      if (!isUpdateAvailable) {
+        console.log('No updates available. Skipping data sync.')
+        DataSyncService.isRunning = false
         return
       }
-    }
 
-    this.settings.set('gamesDbVersion', newVersion)
-    DataSyncService.isRunning = false
-    this.emit('update', {
-      event: 'finish',
-      type: 'checkForUpdates',
-      payload: {},
-    } as DataSyncRendererPayload)
-    console.log('Data sync completed successfully.')
+      this.emit('update', {
+        event: 'start',
+        type: 'checkForUpdates',
+        payload: {
+          isFirstRun,
+          isUpdateAvailable,
+        },
+      } as DataSyncRendererPayload)
+
+      const downloader = this.getDownloaderEmitterItem(isUpdateAvailable)
+      const unzipper = this.getUnzipEmitterItem()
+      const xmlParser = this.getXmlParserEmitterItem()
+      const dbSaver = this.getSaveToDbEmitterItem()
+
+      const chain = chainEmitters(downloader, unzipper, xmlParser, dbSaver)
+      // const chain = chainEmitters(xmlParser, dbSaver)
+
+      const emitUpdate = (event: DataSyncEventPayload) => {
+        this.emit('update', {
+          event: 'progress',
+          type: event.type,
+          payload: event.payload,
+        } as DataSyncRendererPayload)
+      }
+
+      const throttled = _.throttle(emitUpdate, 1250)
+
+      for await (const event of chain) {
+        if (event.type === DataSyncType.unzip && event.event === DataSyncEventType.finish) {
+          await unlink(this.downloadDestination)
+        }
+
+        if (event.event === DataSyncEventType.progress) {
+          throttled(event)
+        }
+
+        if (
+          event.event === DataSyncEventType.progress
+          && !!event.payload
+          && 'progress' in event.payload
+          && event.payload.progress >= 100
+        ) {
+          emitUpdate(event)
+        }
+
+        if (event.event === DataSyncEventType.error) {
+          throw event.payload
+        }
+      }
+
+      this.settings.set('gamesDbVersion', newVersion)
+      this.emit('update', {
+        event: 'finish',
+        type: 'checkForUpdates',
+        payload: {},
+      } as DataSyncRendererPayload)
+      console.log('Data sync completed successfully.')
+    }
+    catch (error) {
+    // Handle any unhandled errors that might occur outside the chained emitters' error handling
+      console.error('Unhandled data sync error:', error)
+      this.emit('update', {
+        event: 'finish',
+        type: 'checkForUpdates',
+        payload: { error: error as Error },
+      } as DataSyncRendererPayload)
+    }
+    finally {
+      DataSyncService.isRunning = false
+    }
   }
 }
