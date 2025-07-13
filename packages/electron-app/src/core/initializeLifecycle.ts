@@ -26,12 +26,12 @@ export default function initializeLifecycle() {
   process.on('uncaughtException', (error) => {
     logger.error('Unhandled Main Process Exception:', error)
 
-    process.exit(1)
+    app.exit(1)
   })
 
   process.on('unhandledRejection', (reason) => {
     logger.error('Unhandled Main Process Rejection:', reason)
 
-    process.exit(1)
+    app.exit(1)
   })
 }

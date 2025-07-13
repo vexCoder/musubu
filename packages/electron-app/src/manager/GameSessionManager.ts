@@ -128,8 +128,8 @@ export class GameSessionManager extends EventEmitter<EventMap> {
       await this.udp.send(RetroArchCommand.SAVE_STATE)
     }
     catch (error) {
-      logger.error('Failed to get RetroArch version:', error)
-      throw new Error(`Failed to get RetroArch version: ${(error as Error).message}`)
+      logger.error('Failed to save RetroArch state:', error)
+      throw new Error(`Failed to save RetroArch state: ${(error as Error).message}`)
     }
   }
 
@@ -138,8 +138,8 @@ export class GameSessionManager extends EventEmitter<EventMap> {
       await this.udp.send(RetroArchCommand.LOAD_STATE)
     }
     catch (error) {
-      logger.error('Failed to get RetroArch version:', error)
-      throw new Error(`Failed to get RetroArch version: ${(error as Error).message}`)
+      logger.error('Failed to load RetroArch state:', error)
+      throw new Error(`Failed to load RetroArch state: ${(error as Error).message}`)
     }
   }
 

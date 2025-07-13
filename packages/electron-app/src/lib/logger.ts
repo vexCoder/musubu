@@ -35,6 +35,9 @@ const logger = winston.createLogger({
       level: 'info',
       dirname: Paths.logs,
       filename: 'info-%DATE%.log',
+      maxSize: '20m',
+      maxFiles: '14d',
+      zippedArchive: true,
     }),
 
     new DailyRotateFile({
@@ -44,7 +47,7 @@ const logger = winston.createLogger({
     }),
 
     new winston.transports.Console({
-      level: 'debug',
+      level: 'info',
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
