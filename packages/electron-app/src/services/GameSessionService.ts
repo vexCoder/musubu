@@ -49,7 +49,7 @@ export class GameSessionService extends EventEmitter<EventMap> {
 
   public async run(): Promise<void> {
     try {
-      console.log('🚀 Starting new game session...')
+      logger.info('🚀 Starting new game session...')
 
       this.retroarchProcess = this._launchRetroArch()
 
@@ -67,7 +67,7 @@ export class GameSessionService extends EventEmitter<EventMap> {
       this.emit('session-started')
     }
     catch (error) {
-      console.error('❌ Error during game session:', error)
+      logger.error('❌ Error during game session:', error)
       // Re-throw the error so the tRPC layer can handle it.
       this.emit('session-error', error as Error)
     }
@@ -99,7 +99,7 @@ export class GameSessionService extends EventEmitter<EventMap> {
       paths.game,
     ]
 
-    console.log(`Spawning RetroArch with command: ${paths.retroarch} ${args.join(' ')}`)
+    logger.info(`Spawning RetroArch with command: ${paths.retroarch} ${args.join(' ')}`)
 
     return execa(paths.retroarch, args, { reject: false })
   }
@@ -129,7 +129,7 @@ export class GameSessionService extends EventEmitter<EventMap> {
       rl.on('line', (line) => {
         for (const id of identifiers) {
           if (line.includes(id) && !foundIdentifiers.has(id)) {
-            console.log(`✅ Startup log found: "${id}"`)
+            logger.info(`✅ Startup log found: "${id}"`)
             foundIdentifiers.add(id)
           }
         }
@@ -147,7 +147,7 @@ export class GameSessionService extends EventEmitter<EventMap> {
           this.retroarchInstance = retroarchWindows
           clearTimeout(timer)
           rl.close()
-          console.log('🎮 RetroArch is ready!')
+          logger.info('🎮 RetroArch is ready!')
           resolve()
         }
       })
@@ -193,7 +193,7 @@ export class GameSessionService extends EventEmitter<EventMap> {
       }, overlayProcessThrottle)
 
       const onStop = () => {
-        console.log('Target window closed. Stopping tracking.')
+        logger.info('Target window closed. Stopping tracking.')
         if (overlay && !overlay.isDestroyed()) {
           setWindowOwner(overlayHandle, 0)
         }
@@ -204,7 +204,7 @@ export class GameSessionService extends EventEmitter<EventMap> {
       }
 
       overlay.on('closed', () => {
-        console.log('Overlay window closed by user.')
+        logger.info('Overlay window closed by user.')
 
         this.emit('session-stopped')
         resolve()

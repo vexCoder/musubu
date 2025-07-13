@@ -61,10 +61,8 @@ export async function* streamParseXml({
   saxStream.on('opentag', (node) => {
     if (!currentRecord && recordTagRegex.test(node.name)) {
       currentRecord = { type: node.name }
-      // console.log('start', node.name)
     }
     else if (currentRecord) {
-      // console.log('Open tag:', node.name)
       currentTag = node.name
       currentRecord[currentTag] = ''
     }
@@ -77,9 +75,7 @@ export async function* streamParseXml({
   })
 
   saxStream.on('closetag', (tagName) => {
-    // We've reached the end of a record.
     if (recordTagRegex.test(tagName) && currentRecord && currentRecord.type === tagName) {
-      // console.log('end', tagName)
       if (filter && !filter(currentRecord)) {
         currentRecord = null
         return
@@ -96,18 +92,18 @@ export async function* streamParseXml({
   })
 
   saxStream.on('error', (err) => {
-    console.error(`Error while parsing XML file: ${filePath}`, err)
+    logger.error(`Error while parsing XML file: ${filePath}`, err)
     streamError = err
     notifyConsumer()
   })
 
   sourceStream.on('end', () => {
-    console.log(`Stream ended for file: ${filePath}`)
+    logger.debug(`Stream ended for file: ${filePath}`)
     notifyConsumer()
   })
 
   sourceStream.on('close', () => {
-    console.log(`Stream closed for file: ${filePath}`)
+    logger.debug(`Stream closed for file: ${filePath}`)
     notifyConsumer()
   })
 
@@ -156,5 +152,5 @@ export async function* streamParseXml({
     }
   }
 
-  console.log(`Finished parsing XML file: ${filePath}`)
+  logger.info(`Finished parsing XML file: ${filePath}`)
 }

@@ -1,11 +1,11 @@
 import type { AppRouter } from '@core/router.js'
 import type { AnyRouter } from '@trpc/server'
 import type { Context, Subscription, TRPCRequest, TRPCResponse } from '@trpc/types' // Assume types are in a separate file
+import { WindowService } from '@services/WindowService'
 import { callTRPCProcedure, getTRPCErrorShape, TRPCError } from '@trpc/server'
 import { isObservable, observableToAsyncIterable } from '@trpc/server/observable'
 import { isAsyncIterable } from '@trpc/server/unstable-core-do-not-import'
 import { trpc } from '@trpc/trpc'
-import { WindowManager } from '@window/WindowManager'
 import { ipcMain } from 'electron'
 import superjson from 'superjson'
 
@@ -272,7 +272,7 @@ export class TrpcIpcManager<
    * Broadcasts a tRPC message to all managed renderer windows.
    */
   private broadcast(message: TRPCResponse): void {
-    for (const window of WindowManager.getAllWindows()) {
+    for (const window of WindowService.getAllWindows()) {
       if (!window.isDestroyed()) {
         window.webContents.send('trpc-message', message)
       }

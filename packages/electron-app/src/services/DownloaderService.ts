@@ -140,7 +140,7 @@ export class Downloader extends EventEmitter<EventMap> {
       }
 
       if (await exists(this.destination) && this.skipResume) {
-        console.log('Destination file already exists. Skipping resume and starting fresh download.')
+        logger.info('Destination file already exists. Skipping resume and starting fresh download.')
         await this.cleanupPartialFile()
         this.downloadedBytes = 0
         this.isResuming = false
@@ -155,7 +155,7 @@ export class Downloader extends EventEmitter<EventMap> {
       if (error instanceof DownloaderError)
         throw error
 
-      console.warn(
+      logger.warn(
         'HEAD request failed or content-length is missing. Progress percentage will not be available.',
       )
       this.totalBytes = null
@@ -167,7 +167,7 @@ export class Downloader extends EventEmitter<EventMap> {
       const stats = await stat(this.destination)
       if (stats.size > 0 && this.totalBytes) {
         if (stats.size === this.totalBytes) {
-          console.log('\nFile is already fully downloaded.')
+          logger.debug('\nFile is already fully downloaded.')
           this.isFinished = true
           this.downloadedBytes = stats.size
           this.totalBytes = stats.size
@@ -175,7 +175,7 @@ export class Downloader extends EventEmitter<EventMap> {
         if (stats.size < this.totalBytes) {
           this.downloadedBytes = stats.size
           this.isResuming = true
-          console.log(`\nResuming download from ${this.downloadedBytes} bytes.`)
+          logger.debug(`\nResuming download from ${this.downloadedBytes} bytes.`)
         }
       }
     }
@@ -187,9 +187,9 @@ export class Downloader extends EventEmitter<EventMap> {
   }
 
   private async executeDownload() {
-    console.log(`Starting download from ${this.url} to ${this.destination}`, { isFinished: this.isFinished, isResuming: this.isResuming })
+    logger.info(`Starting download from ${this.url} to ${this.destination}`, { isFinished: this.isFinished, isResuming: this.isResuming })
     if (this.isFinished) {
-      console.log('Download is already complete. No action taken.')
+      logger.debug('Download is already complete. No action taken.')
       this.emit('progress', {
         progress: 100,
         downloadedBytes: this.downloadedBytes,
@@ -250,7 +250,7 @@ export class Downloader extends EventEmitter<EventMap> {
     catch (error) {
       // Ignore if the file doesn't exist, otherwise log the cleanup error
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('Error during file cleanup:', error)
+        logger.error('Error during file cleanup:', error)
       }
     }
   }

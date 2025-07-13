@@ -1,6 +1,6 @@
-import type { DataSyncRendererPayload } from '@services/DataSyncService'
+import type { DataSyncRendererPayload } from '@services/data-sync/DataSyncService'
 import { on } from 'node:events'
-import { DataSyncService } from '@services/DataSyncService'
+import { DataSyncService } from '@services/data-sync/DataSyncService'
 import { trpc } from '@trpc/trpc'
 
 const syncRouter = trpc.router({

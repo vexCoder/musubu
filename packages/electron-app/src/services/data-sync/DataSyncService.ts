@@ -1,18 +1,18 @@
-import type { DownloadProgress } from '@lib/Downloader'
 import type { UnzipProgress } from '@lib/Unzip'
 import type { XmlProgress } from '@lib/XmlParser'
+import type { DownloadProgress } from '@services/DownloaderService'
 import { EventEmitter, on } from 'node:events'
 import { resolve } from 'node:path'
-import { Downloader } from '@lib/Downloader'
 import { Paths } from '@lib/paths'
 import { Unzip } from '@lib/Unzip'
 import { streamParseXml } from '@lib/XmlParser'
+import { ParsedDataDbService } from '@services/data-sync/ParsedDataDbService'
+import { Downloader } from '@services/DownloaderService'
 import { CronJob } from 'cron'
 import dayjs from 'dayjs'
 import { unlink } from 'fs-extra'
 import _ from 'lodash'
 import { Settings } from '@/core/settings'
-import { DbSaver } from '@/lib/DbSaver'
 
 enum DataSyncType {
   checkForUpdates = 'checkForUpdates',
@@ -137,7 +137,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
   private static isRunning = false
   private readonly downloader: Downloader
   private readonly unzipper: Unzip
-  private readonly saver: DbSaver
+  private readonly saver: ParsedDataDbService
 
   constructor(
     private downloadUrl: string,
@@ -150,7 +150,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
     this.downloader = new Downloader(this.downloadUrl, this.downloadDestination)
     this.unzipper = new Unzip(this.downloadDestination, this.unzipDestination)
-    this.saver = new DbSaver()
+    this.saver = new ParsedDataDbService()
   }
 
   public static getInstance(): DataSyncService {
@@ -192,8 +192,8 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         },
         filter(data) {
           if (data.type === 'Game' || data.type === 'Platform') {
-            if (!data.Name) {
-              console.warn(`Skipping ${data.type} with missing Name field:`, data)
+            if (data.Name == null) {
+              logger.warn(`Skipping ${data.type} with missing Name field:`, data)
               return false
             }
 
@@ -252,13 +252,13 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         cronTime: '00 00 * * * *',
         onTick: async () => {
           try {
-            console.log('Executing sync job...')
+            logger.info('Executing sync job...')
             const nextInvocation = job.nextDate().toUnixInteger()
-            console.log(`Next invocation of sync job: ${dayjs.unix(nextInvocation).format('YYYY-MM-DD HH:mm:ss')}`)
+            logger.info(`Next invocation of sync job: ${dayjs.unix(nextInvocation).format('YYYY-MM-DD HH:mm:ss')}`)
             await execute()
           }
           catch (error) {
-            console.error('Error during scheduled data sync:', error)
+            logger.error('Error during scheduled data sync:', error)
           }
         },
         start: true,
@@ -279,14 +279,14 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
     const currentEtag = this.settings.get('gamesDbVersion')
 
     if (currentEtag === head.etag) {
-      console.log('No updates available. Current version is up-to-date.')
+      logger.info('No updates available. Current version is up-to-date.')
       return {
         isUpdateAvailable: false,
         currentVersion: currentEtag,
       }
     }
 
-    console.log('Updates available. Current version:', currentEtag, 'New version:', head.etag)
+    logger.info('Updates available. Current version: %s New version: %s', currentEtag, head.etag)
     return {
       isUpdateAvailable: true,
       currentVersion: currentEtag,
@@ -296,7 +296,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
 
   public async run() {
     if (DataSyncService.isRunning) {
-      console.warn('Data sync is already running. Skipping this run.')
+      logger.warn('Data sync is already running. Skipping this run.')
       return
     }
 
@@ -310,7 +310,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
       const isFirstRun = !this.settings.get('gamesDbVersion')
 
       if (!isUpdateAvailable) {
-        console.log('No updates available. Skipping data sync.')
+        logger.info('No updates available. Skipping data sync.')
         return
       }
 
@@ -370,11 +370,11 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         type: 'checkForUpdates',
         payload: {},
       } as DataSyncRendererPayload)
-      console.log('Data sync completed successfully.')
+      logger.info('Data sync completed successfully.')
     }
     catch (error) {
     // Handle any unhandled errors that might occur outside the chained emitters' error handling
-      console.error('Unhandled data sync error:', error)
+      logger.error('Unhandled data sync error:', error)
       this.emit('update', {
         event: 'finish',
         type: 'checkForUpdates',

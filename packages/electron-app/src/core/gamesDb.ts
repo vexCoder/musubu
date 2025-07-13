@@ -11,7 +11,7 @@ export const gamesDb = new Kysely<Database>({
   dialect,
   log: (ev) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`SQL: ${ev.query.sql} - ${ev.query.parameters ? JSON.stringify(ev.query.parameters) : ''}`)
+      logger.debug(`SQL: ${ev.query.sql} - ${ev.query.parameters ? JSON.stringify(ev.query.parameters) : ''}`)
     }
   },
 })

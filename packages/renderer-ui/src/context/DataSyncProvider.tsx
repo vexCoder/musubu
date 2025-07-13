@@ -63,7 +63,7 @@ export default function DataSyncProvider({ children }: { children: React.ReactNo
       return
     }
 
-    console.log('Data sync finished:', data)
+    console.log('Data sync finished')
 
     if (toastId) {
       toast.dismiss(toastId)

@@ -12,7 +12,6 @@
       "@core/*": ["src/core/*"],
       "@services/*": ["src/services/*"],
       "@trpc/*": ["src/trpc/*"],
-      "@window/*": ["src/window/*"],
     },
     "target": "es6",
     "types": [

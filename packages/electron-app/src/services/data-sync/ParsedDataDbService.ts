@@ -1,8 +1,8 @@
 import type { NewGame, NewGameAlternateName, NewGameImage, NewPlatform, NewPlatformAlternateName } from '@core/gamesDb'
 import EventEmitter from 'node:events'
+import { gamesDb } from '@core/gamesDb'
 import _ from 'lodash'
 import PQueue from 'p-queue'
-import { gamesDb } from '@core/gamesDb'
 
 // eslint-disable-next-line ts/no-explicit-any
 function mapXmlGameToNewGame(data: any): NewGame {
@@ -76,14 +76,13 @@ function mapXmlGameImageToNewGameImage(data: any): NewGameImage {
   }
 }
 
-// --- New: DbSaver Class for emitting DB events ---
-interface DbSaverEventMap {
+interface ParsedDataDbServiceEventMap {
   progress: [{ savedCount: number, totalPending: number, progress: number, type: 'Save' | 'Append' }]
   finish: []
   error: [Error]
 }
 
-export class DbSaver extends EventEmitter<DbSaverEventMap> {
+export class ParsedDataDbService extends EventEmitter<ParsedDataDbServiceEventMap> {
   private dbWriteQueue: PQueue
   // eslint-disable-next-line ts/no-explicit-any
   private dataMap: Map<string, any[]> = new Map()
@@ -104,13 +103,13 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
       if (!this.dbWriteQueue.size && !this.getTotalPendingData()) {
         this.isSaving = false
         this.emit('finish')
-        console.log('[DbSaver] All data saved successfully.')
+        logger.info('All data saved successfully.')
       }
     }, 500)
 
     this.dbWriteQueue.on('completed', (result) => {
       this.processedItemCount += result
-      console.log(`[DbSaver] Completed a batch of ${result} items. Items left to process: ${this.totalProcessingTask - this.processedItemCount}`)
+      logger.info(`Completed a batch of ${result} items. Items left to process: ${this.totalProcessingTask - this.processedItemCount}`)
       this.emit('progress', {
         savedCount: this.processedItemCount,
         totalPending: this.totalProcessingTask - this.processedItemCount,
@@ -124,7 +123,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
     this.dbWriteQueue.on('error', (error) => {
       this.isSaving = false
       this.emit('error', error)
-      console.error('[DbSaver] Error occurred while processing the queue:', error)
+      logger.error('Error occurred while processing the queue:', error)
       this.dbWriteQueue.clear()
       this.dbWriteQueue.pause()
       this.dataMap.clear()
@@ -147,12 +146,12 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
 
   public async startAppend(): Promise<void> {
     if (this.isSaving) {
-      console.warn('[DbSaver] Cannot start appending data while already saving. Please wait for the current operation to finish.')
+      logger.warn('Cannot start appending data while already saving. Please wait for the current operation to finish.')
       return
     }
 
     if (this.isAppend) {
-      console.warn('[DbSaver] Already in append mode. No need to start again.')
+      logger.warn('Already in append mode. No need to start again.')
       return
     }
 
@@ -171,7 +170,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
 
           const batch = list.splice(0, 1000)
           this.totalProcessingTask += batch.length
-          console.log(`[DbSaver] Processing ${batch.length} items for ${key}.`)
+          logger.info(`Processing ${batch.length} items for ${key}.`)
           this.dbWriteQueue.add(async () => {
             if (key === 'Game') {
               await this.dbInstance.insertInto('Games').values(batch.map(mapXmlGameToNewGame)).onConflict(oc => oc.column('DatabaseID').doUpdateSet(eb => ({
@@ -238,7 +237,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
 
         if (this.isSaving && !this.pendingStartCount) {
           this.pendingStartCount = this.getTotalPendingData()
-          console.log(`[DbSaver] Starting append mode with ${this.pendingStartCount} items pending.`)
+          logger.info(`Starting append mode with ${this.pendingStartCount} items pending.`)
         }
 
         if (this.isSaving && this.getTotalPendingData() > 0 && this.pendingStartCount) {
@@ -254,7 +253,7 @@ export class DbSaver extends EventEmitter<DbSaverEventMap> {
         if (this.isSaving && !this.getTotalPendingData()) {
           this.isAppend = false
           this.dbWriteQueue.start()
-          console.log('[DbSaver] No more data to process. Stopping append mode.')
+          logger.info('No more data to process. Stopping append mode.')
           break
         }
 
