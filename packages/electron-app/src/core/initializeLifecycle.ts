@@ -1,10 +1,10 @@
-import { WindowManager } from '@window/WindowManager'
+import { WindowService } from '@services/WindowService'
 import { app } from 'electron'
 
 export default function initializeLifecycle() {
   app.on('activate', () => {
-    if (WindowManager.getMainWindow() === null) {
-      WindowManager.createMainWindow()
+    if (WindowService.getMainWindow() === null) {
+      WindowService.createMainWindow()
     }
   })
 
@@ -15,11 +15,19 @@ export default function initializeLifecycle() {
   })
 
   app.on('second-instance', () => {
-    const mainWindow = WindowManager.getMainWindow()
+    const mainWindow = WindowService.getMainWindow()
     if (mainWindow) {
       if (mainWindow.isMinimized())
         mainWindow.restore()
       mainWindow.focus()
     }
+  })
+
+  process.on('uncaughtException', (error) => {
+    logger.error('Unhandled Main Process Exception:', error)
+  })
+
+  process.on('unhandledRejection', (reason) => {
+    logger.error('Unhandled Main Process Rejection:', reason)
   })
 }

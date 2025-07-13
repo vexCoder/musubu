@@ -11,6 +11,7 @@ interface QueueItem {
   command: string
   expectResponse: boolean // <-- The key addition
   resolve: (value: UdpResponse | void) => void
+  // eslint-disable-next-line ts/no-explicit-any
   reject: (reason?: any) => void
 }
 
@@ -33,7 +34,7 @@ export class UdpClient {
   ) {
     this.socket = createSocket('udp4')
     this.socket.on('error', (err) => {
-      console.error(`UDPMessageService: Socket error: ${err.message}`)
+      logger.error(`UDPMessageService: Socket error`, err)
     })
 
     const sendWithoutResponse = (command: string): Promise<void> => {

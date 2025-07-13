@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server'
-import { GameSessionManager } from '@/manager/GameSessionManager'
 import { trpc } from '@trpc/trpc'
+import { GameSessionManager } from '@/manager/GameSessionManager'
 
 let activeSession: GameSessionManager | null = null
 
@@ -21,7 +21,7 @@ const gameRouter = trpc.router({
 
       session.on('destroyed', () => {
         activeSession = null // Clear the active session when destroyed
-        console.log('Game session has been destroyed and cleared from active sessions.')
+        logger.info('Game session has been destroyed and cleared from active sessions.')
       })
 
       activeSession = session
@@ -33,7 +33,7 @@ const gameRouter = trpc.router({
       }
       catch (error) {
         activeSession = null // Ensure session is cleared on failure
-        console.error('tRPC router caught an error from the game service:', error)
+        logger.error('tRPC router caught an error from the game service:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: (error as Error).message || 'An unknown error occurred while running the game.',
@@ -66,7 +66,7 @@ const gameRouter = trpc.router({
       return { ok: true, state }
     }
     catch (error) {
-      console.error('tRPC router caught an error while querying game state:', error)
+      logger.error('tRPC router caught an error while querying game state:', error)
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: (error as Error).message || 'An unknown error occurred while querying game state.',
@@ -88,7 +88,7 @@ const gameRouter = trpc.router({
         return { ok: true, message: 'Game state saved successfully.' }
       }
       catch (error) {
-        console.error('tRPC router caught an error while saving game state:', error)
+        logger.error('tRPC router caught an error while saving game state:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: (error as Error).message || 'An unknown error occurred while saving game state.',
@@ -110,7 +110,7 @@ const gameRouter = trpc.router({
         return { ok: true, message: 'Game state loaded successfully.' }
       }
       catch (error) {
-        console.error('tRPC router caught an error while loading game state:', error)
+        logger.error('tRPC router caught an error while loading game state:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: (error as Error).message || 'An unknown error occurred while loading game state.',

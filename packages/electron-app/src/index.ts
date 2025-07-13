@@ -11,9 +11,10 @@ import { initializeDatabase } from '@core/gamesDb'
 import initializeIpc from '@core/initializeIpc'
 import initializeLifecycle from '@core/initializeLifecycle'
 import { Settings } from '@core/settings'
-import { DataSyncService } from '@services/DataSyncService'
-import { WindowManager } from '@window/WindowManager'
+import { DataSyncService } from '@services/data-sync/DataSyncService'
+import { WindowService } from '@services/WindowService'
 import { app } from 'electron'
+import '@core/augment'
 
 app.disableHardwareAcceleration()
 
@@ -30,8 +31,8 @@ app.whenReady().then(async () => {
 
   const dataSync = DataSyncService.initialize()
 
-  const mainWindow = WindowManager.createMainWindow()
-  await WindowManager.waitForWindow(mainWindow)
+  const mainWindow = WindowService.createMainWindow()
+  await WindowService.waitForWindow(mainWindow)
 
   dataSync.run()
 })

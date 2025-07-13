@@ -18,7 +18,7 @@ export default async function waitForUrl(url: string): Promise<void> {
           }
         })
         .catch((error) => {
-          console.error(`Error fetching ${url}:`, error)
+          logger.error(`Error fetching ${url}:`, error)
         })
     }, 1000)
   })

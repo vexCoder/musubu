@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:stream'
 import { Paths } from '@lib/paths'
 import { UdpClient } from '@lib/UdpClient'
 import { GameSessionService } from '@services/GameSessionService'
-import { WindowManager } from '@window/WindowManager'
+import { WindowService } from '@services/WindowService'
 
 export enum RetroArchCommand {
   VERSION = 'VERSION',
@@ -48,7 +48,7 @@ export class GameSessionManager extends EventEmitter<EventMap> {
     this.corePath = corePath
     this.discPaths = discPaths
 
-    this.overlayWindow = WindowManager.createOverlayWindow()
+    this.overlayWindow = WindowService.createOverlayWindow()
 
     this.service = new GameSessionService({
       paths: {
@@ -68,10 +68,10 @@ export class GameSessionManager extends EventEmitter<EventMap> {
 
   public async start() {
     try {
-      console.log('🚀 Starting new game session...')
+      logger.info('🚀 Starting new game session...')
 
       if (this.service) {
-        console.warn('⚠️ A game session is already running. Stopping the previous session...')
+        logger.warn('⚠️ A game session is already running. Stopping the previous session...')
         await this.service.cleanup()
       }
 
@@ -80,7 +80,7 @@ export class GameSessionManager extends EventEmitter<EventMap> {
       return this.service
     }
     catch (error) {
-      console.error('❌ Error during game session:', error)
+      logger.error('❌ Error during game session:', error)
       throw new Error(`Game session failed: ${(error as Error).message}`)
     }
   }
@@ -118,7 +118,7 @@ export class GameSessionManager extends EventEmitter<EventMap> {
       return parsedResponse
     }
     catch (error) {
-      console.error('Failed to get RetroArch status:', error)
+      logger.error('Failed to get RetroArch status:', error)
       throw new Error(`Failed to get RetroArch status: ${(error as Error).message}`)
     }
   }
@@ -128,7 +128,7 @@ export class GameSessionManager extends EventEmitter<EventMap> {
       await this.udp.send(RetroArchCommand.SAVE_STATE)
     }
     catch (error) {
-      console.error('Failed to get RetroArch version:', error)
+      logger.error('Failed to get RetroArch version:', error)
       throw new Error(`Failed to get RetroArch version: ${(error as Error).message}`)
     }
   }
@@ -138,7 +138,7 @@ export class GameSessionManager extends EventEmitter<EventMap> {
       await this.udp.send(RetroArchCommand.LOAD_STATE)
     }
     catch (error) {
-      console.error('Failed to get RetroArch version:', error)
+      logger.error('Failed to get RetroArch version:', error)
       throw new Error(`Failed to get RetroArch version: ${(error as Error).message}`)
     }
   }
@@ -161,7 +161,7 @@ export class GameSessionManager extends EventEmitter<EventMap> {
 
   private setupListeners() {
     this.service.on('session-started', () => {
-      console.log('🎮 Game session started successfully.')
+      logger.info('🎮 Game session started successfully.')
     })
 
     this.service.on('session-stopped', () => {
@@ -169,7 +169,7 @@ export class GameSessionManager extends EventEmitter<EventMap> {
     })
 
     this.service.on('session-error', (error) => {
-      console.error('❌ Game session error:', error)
+      logger.error('❌ Game session error:', error)
       this.stop()
     })
   }
