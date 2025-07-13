@@ -76,7 +76,6 @@ function mapXmlGameImageToNewGameImage(data: any): NewGameImage {
   }
 }
 
-// --- New: DbSaver Class for emitting DB events ---
 interface ParsedDataDbServiceEventMap {
   progress: [{ savedCount: number, totalPending: number, progress: number, type: 'Save' | 'Append' }]
   finish: []

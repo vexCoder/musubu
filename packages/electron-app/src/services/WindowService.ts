@@ -31,9 +31,13 @@ export class WindowService {
       },
     })
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' && process.env.RENDERER_URL) {
       this.mainWindow.loadURL(process.env.RENDERER_URL)
       this.mainWindow.webContents.toggleDevTools()
+    }
+    else {
+      // TODO - Use a proper path for production builds
+      this.mainWindow.loadFile(resolve(__dirname, '../renderer/index.html'))
     }
 
     this.mainWindow.on('resize', () => {
@@ -77,8 +81,12 @@ export class WindowService {
 
     this.overlayWindow.setMenu(null)
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' && process.env.OVERLAY_URL) {
       this.overlayWindow.loadURL(process.env.OVERLAY_URL!)
+    }
+    else {
+      // TODO - Use a proper path for production builds
+      this.overlayWindow.loadFile(resolve(__dirname, '../renderer/overlay.html'))
     }
 
     this.windows.push(this.overlayWindow)

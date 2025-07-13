@@ -192,7 +192,7 @@ export class DataSyncService extends EventEmitter<DataSyncEventMap> {
         },
         filter(data) {
           if (data.type === 'Game' || data.type === 'Platform') {
-            if (['null', 'undefined'].includes(typeof data.Name)) {
+            if (data.Name == null) {
               logger.warn(`Skipping ${data.type} with missing Name field:`, data)
               return false
             }

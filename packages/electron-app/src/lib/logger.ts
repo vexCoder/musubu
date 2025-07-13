@@ -1,7 +1,7 @@
+import { inspect } from 'node:util'
 import { Paths } from '@lib/paths'
 import chalk from 'chalk'
 import dayjs from 'dayjs'
-import _ from 'lodash'
 import winston from 'winston'
 import DailyRotateFile from 'winston-daily-rotate-file'
 
@@ -73,7 +73,13 @@ const logger = winston.createLogger({
           }
 
           if (Object.keys(metadata).length > 0) {
-            log += ` ${JSON.stringify(metadata)}`
+            log += ` ${inspect(metadata, {
+              colors: true,
+              depth: 2,
+              maxArrayLength: 10,
+              breakLength: 100,
+              compact: false,
+            })}`
           }
 
           return log
